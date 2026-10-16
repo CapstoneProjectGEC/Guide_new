@@ -1,5 +1,5 @@
 import React from "react";
-import { Languages, Volume2, VolumeX, Moon, Sun, Menu, Compass, Shield, Info } from "lucide-react";
+import { Languages, Volume2, VolumeX, Moon, Sun, Menu, Compass, Shield } from "lucide-react";
 import { UI_STRINGS } from "@/theme/tokens";
 
 interface HeaderProps {
@@ -12,7 +12,6 @@ interface HeaderProps {
   onToggleSidebar: () => void;
   onToggleMap: () => void;
   onOpenAdmin?: () => void;
-  onOpenAboutKb?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,7 +24,6 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   onToggleMap,
   onOpenAdmin,
-  onOpenAboutKb,
 }) => {
   const t = UI_STRINGS[language];
 
@@ -112,19 +110,6 @@ export const Header: React.FC<HeaderProps> = ({
               <Moon className="w-4 h-4 text-heritage-brown" />
             )}
           </button>
-
-          {/* About Knowledge Base Data */}
-          {onOpenAboutKb && (
-            <button
-              onClick={onOpenAboutKb}
-              aria-label="About Guide Data and Sources"
-              title="About This Guide's Data"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-heritage-sandstone dark:bg-heritage-carved-basalt text-heritage-brown dark:text-heritage-marble hover:border-heritage-gold border border-transparent transition-colors focus:ring-2 focus:ring-heritage-gold"
-            >
-              <Info className="w-4 h-4 text-heritage-gold" />
-              <span className="hidden sm:inline">About Data</span>
-            </button>
-          )}
 
           {/* Admin Portal Toggle */}
           {onOpenAdmin && (

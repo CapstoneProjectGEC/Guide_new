@@ -12,7 +12,6 @@ from backend.src.application.chat.grounding_guard import GroundingGuard
 from backend.src.application.chat.language_detector import LanguageDetector
 from backend.src.application.chat.prompt_builder import PromptBuilder
 from backend.src.application.rag.retriever import HybridRAGRetriever
-from backend.src.application.rag.belur_kb_service import get_belur_kb_service
 from backend.src.application.translation.query_normalizer import QueryNormalizer
 from backend.src.core.errors import NotFoundError
 from backend.src.core.logging import get_logger
@@ -20,7 +19,6 @@ from backend.src.domain.conversation import (
     ChatMessageResponse,
     ChatSessionResponse,
     Citation,
-    ImageCard,
     SendMessageRequest,
 )
 from backend.src.domain.rag import RetrievalCandidate
@@ -135,35 +133,29 @@ class ConversationManager:
             normalized = self.query_normalizer.normalize_for_retrieval(reformulated_query, source_lang=active_language)
             retrieval_query = normalized.retrieval_query
 
-        # 7. Execute Belur Knowledge Base Answer Pipeline
-        belur_service = get_belur_kb_service()
-        ans_res = belur_service.answer(query=retrieval_query)
-        assistant_content = ans_res["answer"]
-        is_grounded = ans_res["is_grounded"]
-        has_timing_uncertainty = ans_res.get("has_timing_uncertainty", False)
+        # 7. Execute Hybrid RAG Retrieval
+        candidates = await self.retriever.retrieve(
+            query=retrieval_query,
+            top_final=4,
+            threshold=0.35,
+        )
 
-        # Build domain citations from belur service citations
-        domain_citations: list[Citation] = []
-        for cit in ans_res.get("citations", []):
-            domain_citations.append(
-                Citation(
-                    chunk_id=cit.get("section_id", "BELUR-KB-001"),
-                    document_id="BELUR-KB-001",
-                    page_number=1,
-                    section_heading=cit.get("title"),
-                    section_id=cit.get("section_id"),
-                    source_page_title=cit.get("source_page_title"),
-                    source_url=cit.get("source_url"),
-                    relevance_score=float(cit.get("relevance_score", 1.0)),
-                    snippet=cit.get("title", ""),
-                )
-            )
+        # 7. Evaluate Strict Grounding Guard
+        grounding_result = self.grounding_guard.evaluate(candidates, language=active_language)
 
-        domain_images = [ImageCard(**img) for img in ans_res.get("images", [])]
+        # 8. Synthesize Response Text & Attributed Citations
+        if not grounding_result.is_grounded:
+            assistant_content = grounding_result.fallback_message or ""
+            is_grounded = False
+            selected_chunks = []
+        else:
+            is_grounded = True
+            selected_chunks = grounding_result.selected_chunks
+            assistant_content = self._format_grounded_answer(selected_chunks, active_language)
 
         latency_ms = int((time.perf_counter() - t_start) * 1000.0)
 
-        # 8. Record Assistant Turn
+        # 9. Record Assistant Turn
         assistant_msg = ChatMessage(
             session_id=chat_session.id,
             role="assistant",
@@ -175,6 +167,13 @@ class ConversationManager:
             created_at=utc_now(),
         )
         self.session.add(assistant_msg)
+        await self.session.flush()
+
+        # 10. Map Citations & Relational References
+        domain_citations: list[Citation] = []
+        if is_grounded and selected_chunks:
+            domain_citations = await self._record_citations(assistant_msg.id, selected_chunks)
+
         await self.session.commit()
         await self.session.refresh(assistant_msg)
 
@@ -186,7 +185,6 @@ class ConversationManager:
             language=active_language,
             is_grounded=is_grounded,
             citations=len(domain_citations),
-            images=len(domain_images),
             latency_ms=latency_ms,
         )
 
@@ -199,10 +197,8 @@ class ConversationManager:
             input_mode=assistant_msg.input_mode,
             latency_ms=assistant_msg.latency_ms,
             is_grounded=assistant_msg.is_grounded,
-            has_timing_uncertainty=has_timing_uncertainty,
             created_at=assistant_msg.created_at.isoformat(),
             citations=domain_citations,
-            images=domain_images,
         )
 
     async def process_message_stream(self, request: SendMessageRequest) -> AsyncGenerator[str, None]:
@@ -251,53 +247,105 @@ class ConversationManager:
             normalized = self.query_normalizer.normalize_for_retrieval(reformulated_query, source_lang=active_language)
             retrieval_query = normalized.retrieval_query
 
-        # 7. Execute Belur Knowledge Base Answer Pipeline
-        belur_service = get_belur_kb_service()
-        ans_res = belur_service.answer(query=retrieval_query)
-        assistant_content = ans_res["answer"]
-        is_grounded = ans_res["is_grounded"]
-        has_timing_uncertainty = ans_res.get("has_timing_uncertainty", False)
+        # 7. Execute Hybrid RAG Retrieval
+        candidates = await self.retriever.retrieve(
+            query=retrieval_query,
+            top_final=4,
+            threshold=0.35,
+        )
 
-        domain_citations = [
-            {
-                "chunk_id": cit.get("section_id", "BELUR-KB-001"),
-                "document_id": "BELUR-KB-001",
-                "page_number": 1,
-                "section_heading": cit.get("title"),
-                "section_id": cit.get("section_id"),
-                "source_page_title": cit.get("source_page_title"),
-                "source_url": cit.get("source_url"),
-                "relevance_score": float(cit.get("relevance_score", 1.0)),
-                "snippet": cit.get("title", ""),
+        # 7. Evaluate Strict Grounding Guard
+        grounding_result = self.grounding_guard.evaluate(candidates, language=active_language)
+
+        if not grounding_result.is_grounded:
+            fallback = grounding_result.fallback_message or ""
+            latency_ms = int((time.perf_counter() - t_start) * 1000.0)
+
+            assistant_msg = ChatMessage(
+                session_id=chat_session.id,
+                role="assistant",
+                content=fallback,
+                detected_language=active_language,
+                input_mode=request.input_mode,
+                latency_ms=latency_ms,
+                is_grounded=False,
+                created_at=utc_now(),
+            )
+            self.session.add(assistant_msg)
+            await self.session.commit()
+            await self.session.refresh(assistant_msg)
+
+            # Stream empty citations event
+            yield f"event: citations\ndata: {json.dumps({'citations': []}, ensure_ascii=False)}\n\n"
+
+            # Stream fallback text
+            for word in fallback.split():
+                yield f"event: token\ndata: {json.dumps({'token': word + ' '}, ensure_ascii=False)}\n\n"
+
+            # Stream terminal done event
+            done_payload = {
+                "message_id": assistant_msg.id,
+                "session_id": chat_session.id,
+                "is_grounded": False,
+                "detected_language": active_language,
+                "latency_ms": latency_ms,
             }
-            for cit in ans_res.get("citations", [])
-        ]
-        images_data = ans_res.get("images", [])
+            yield f"event: done\ndata: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
+            return
 
-        # Stream citations, images, and timing notice immediately
-        yield f"event: citations\ndata: {json.dumps({'citations': domain_citations}, ensure_ascii=False)}\n\n"
-        if images_data:
-            yield f"event: images\ndata: {json.dumps({'images': images_data}, ensure_ascii=False)}\n\n"
-        if has_timing_uncertainty:
-            yield f"event: timing_notice\ndata: {json.dumps({'notice': True}, ensure_ascii=False)}\n\n"
-
-        words = assistant_content.split(" ")
-        for i, word in enumerate(words):
-            token = word + (" " if i < len(words) - 1 else "")
-            yield f"event: token\ndata: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
-
-        latency_ms = int((time.perf_counter() - t_start) * 1000.0)
+        # Evidence is grounded!
+        selected_chunks = grounding_result.selected_chunks
 
         assistant_msg = ChatMessage(
             session_id=chat_session.id,
             role="assistant",
-            content=assistant_content,
+            content="",
             detected_language=active_language,
             input_mode=request.input_mode,
-            latency_ms=latency_ms,
-            is_grounded=is_grounded,
+            latency_ms=None,
+            is_grounded=True,
             created_at=utc_now(),
         )
+        self.session.add(assistant_msg)
+        await self.session.flush()
+
+        # Record citations and stream citation metadata immediately
+        domain_citations = await self._record_citations(assistant_msg.id, selected_chunks)
+        citations_data = [cit.model_dump() for cit in domain_citations]
+        yield f"event: citations\ndata: {json.dumps({'citations': citations_data}, ensure_ascii=False)}\n\n"
+
+        # Build grounded prompt
+        system_prompt, user_prompt = self.prompt_builder.build_prompt(
+            query=request.content,
+            evidence_chunks=selected_chunks,
+            language=active_language,
+            history=history,
+        )
+
+        tokens_accum: list[str] = []
+        try:
+            async for token in self.ollama.stream_generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+            ):
+                tokens_accum.append(token)
+                yield f"event: token\ndata: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+
+        except Exception as exc:
+            logger.warning("ollama_stream_generation_fallback", error=str(exc))
+            # If Ollama service is unavailable or times out, fallback to verified ground truth chunks directly
+            grounded_fallback = self._format_grounded_answer(selected_chunks, active_language)
+            tokens_accum = [grounded_fallback]
+            for word in grounded_fallback.split():
+                yield f"event: token\ndata: {json.dumps({'token': word + ' '}, ensure_ascii=False)}\n\n"
+
+        final_content = "".join(tokens_accum).strip()
+        if not final_content:
+            final_content = self._format_grounded_answer(selected_chunks, active_language)
+
+        latency_ms = int((time.perf_counter() - t_start) * 1000.0)
+        assistant_msg.content = final_content
+        assistant_msg.latency_ms = latency_ms
         self.session.add(assistant_msg)
         await self.session.commit()
         await self.session.refresh(assistant_msg)
@@ -305,8 +353,7 @@ class ConversationManager:
         done_payload = {
             "message_id": assistant_msg.id,
             "session_id": chat_session.id,
-            "is_grounded": is_grounded,
-            "has_timing_uncertainty": has_timing_uncertainty,
+            "is_grounded": True,
             "detected_language": active_language,
             "latency_ms": latency_ms,
         }

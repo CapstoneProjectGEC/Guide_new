@@ -30,31 +30,11 @@ class Citation(BaseModel):
     """Attributed source citation linking response to ground truth document chunk."""
 
     chunk_id: str = Field(description="Unique chunk identifier")
-    document_id: str = Field(default="BELUR-KB-001", description="Source document identifier")
-    page_number: int = Field(default=1, ge=1, description="Origin page number")
+    document_id: str = Field(description="Source document identifier")
+    page_number: int = Field(ge=1, description="Origin page number")
     section_heading: str | None = Field(default=None, description="Section heading context")
-    section_id: str | None = Field(default=None, description="Canonical Section ID e.g. BELUR-KB-001-S04.1")
-    source_page_title: str | None = Field(default=None, description="Human readable source page title")
-    source_url: str | None = Field(default=None, description="Original source webpage URL")
-    relevance_score: float = Field(default=1.0, description="Confidence re-ranking score")
-    snippet: str = Field(default="", description="Verbatim excerpt from source chunk")
-
-
-class ImageCard(BaseModel):
-    """Catalogued temple image card with attribution and caption hedges."""
-
-    image_id: str
-    display_url: str | None = None
-    original_url: str = ""
-    caption: str = ""
-    raw_caption: str = ""
-    uncertain_caption: bool = False
-    source_site: str = ""
-    source_page_url: str = ""
-    section_id: str = ""
-    width: int | None = None
-    height: int | None = None
-    is_local: bool = False
+    relevance_score: float = Field(description="Confidence re-ranking score")
+    snippet: str = Field(description="Verbatim excerpt from source chunk")
 
 
 class ChatMessageResponse(BaseModel):
@@ -68,10 +48,8 @@ class ChatMessageResponse(BaseModel):
     input_mode: str
     latency_ms: int | None = None
     is_grounded: bool = True
-    has_timing_uncertainty: bool = False
     created_at: str
     citations: list[Citation] = Field(default_factory=list)
-    images: list[ImageCard] = Field(default_factory=list)
 
 
 class ChatSessionResponse(BaseModel):

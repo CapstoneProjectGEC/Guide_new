@@ -7,26 +7,8 @@ export interface Citation {
   document_id: string;
   page_number: number;
   section_heading: string | null;
-  section_id?: string | null;
-  source_page_title?: string | null;
-  source_url?: string | null;
   relevance_score: number;
   snippet: string;
-}
-
-export interface ImageCard {
-  image_id: string;
-  display_url?: string | null;
-  original_url: string;
-  caption: string;
-  raw_caption: string;
-  uncertain_caption: boolean;
-  source_site: string;
-  source_page_url: string;
-  section_id: string;
-  width?: number | null;
-  height?: number | null;
-  is_local: boolean;
 }
 
 export interface ChatMessage {
@@ -38,31 +20,8 @@ export interface ChatMessage {
   input_mode: "text" | "voice";
   latency_ms?: number | null;
   is_grounded: boolean;
-  has_timing_uncertainty?: boolean;
   created_at: string;
   citations: Citation[];
-  images?: ImageCard[];
-}
-
-export interface KbInfo {
-  kb_version: string;
-  extraction_date: string;
-  document_id: string;
-  total_chunks: number;
-  source_pages: Array<{
-    url: string;
-    title: string;
-    site: string;
-    status: string;
-    content_extracted?: string;
-    notes?: string;
-  }>;
-  discovered_pages: Array<{
-    url: string;
-    title?: string;
-    notes?: string;
-  }>;
-  known_limitations: string;
 }
 
 export interface ChatSession {

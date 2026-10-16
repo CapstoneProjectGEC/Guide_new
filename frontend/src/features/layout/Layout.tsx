@@ -17,7 +17,6 @@ interface LayoutProps {
   activeCitation: Citation | null;
   onCloseCitation: () => void;
   onOpenAdmin?: () => void;
-  onOpenAboutKb?: () => void;
   children: React.ReactNode;
 }
 
@@ -33,7 +32,6 @@ export const Layout: React.FC<LayoutProps> = ({
   activeCitation,
   onCloseCitation,
   onOpenAdmin,
-  onOpenAboutKb,
   children,
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,7 +50,6 @@ export const Layout: React.FC<LayoutProps> = ({
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
         onToggleMap={() => setMapOpen((prev) => !prev)}
         onOpenAdmin={onOpenAdmin}
-        onOpenAboutKb={onOpenAboutKb}
       />
 
       {/* Main Body (Sidebar + Center Chat + Side Drawers) */}

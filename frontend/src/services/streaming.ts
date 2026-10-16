@@ -12,13 +12,10 @@ export interface Citation {
   snippet: string;
 }
 
-import { ImageCard } from "@/types/api";
-
 export interface StreamDonePayload {
   message_id: string;
   session_id: string;
   is_grounded: boolean;
-  has_timing_uncertainty?: boolean;
   detected_language: string;
   latency_ms: number;
 }
@@ -34,8 +31,6 @@ export interface SendMessagePayload {
 export interface StreamCallbacks {
   onToken?: (token: string) => void;
   onCitations?: (citations: Citation[]) => void;
-  onImages?: (images: ImageCard[]) => void;
-  onTimingNotice?: (notice: boolean) => void;
   onDone?: (payload: StreamDonePayload) => void;
   onError?: (error: Error) => void;
 }
@@ -114,10 +109,6 @@ export async function streamTouristMessage(
               callbacks.onToken?.(parsed.token);
             } else if (currentEvent === "citations" && parsed.citations) {
               callbacks.onCitations?.(parsed.citations);
-            } else if (currentEvent === "images" && parsed.images) {
-              callbacks.onImages?.(parsed.images);
-            } else if (currentEvent === "timing_notice") {
-              callbacks.onTimingNotice?.(Boolean(parsed.notice));
             } else if (currentEvent === "done") {
               callbacks.onDone?.(parsed);
             } else if (currentEvent === "error") {

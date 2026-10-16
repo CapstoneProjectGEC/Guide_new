@@ -70,29 +70,3 @@ async def get_session(
     """Retrieve turn history and source citations for an active session."""
     manager = ConversationManager(session=session)
     return await manager.get_session_history(session_id)
-
-
-@router.get("/kb/info", status_code=status.HTTP_200_OK)
-async def get_kb_info():
-    """Return Belur knowledge base metadata, crawl manifest, and extraction limitations."""
-    from backend.src.application.rag.belur_kb_service import get_belur_kb_service
-    return get_belur_kb_service().get_info()
-
-
-@router.get("/kb/sections/{section_id}", status_code=status.HTTP_200_OK)
-async def get_kb_section(section_id: str):
-    """Retrieve complete raw section details from the Belur Knowledge Base."""
-    from backend.src.application.rag.belur_kb_service import get_belur_kb_service
-    sec = get_belur_kb_service().get_section(section_id)
-    if not sec:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"Section '{section_id}' not found.")
-    return sec
-
-
-@router.get("/kb/images", status_code=status.HTTP_200_OK)
-async def get_kb_images(image_ids: str):
-    """Retrieve compliant image cards for a comma-separated list of image IDs."""
-    from backend.src.application.rag.belur_kb_service import get_belur_kb_service
-    ids_list = [iid.strip() for iid in image_ids.split(",") if iid.strip()]
-    return get_belur_kb_service().get_images(ids_list)

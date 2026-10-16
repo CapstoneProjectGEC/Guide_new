@@ -57,15 +57,6 @@ class Settings(BaseSettings):
     CHUNK_SIZE_TOKENS: int = Field(default=400)
     CHUNK_OVERLAP_TOKENS: int = Field(default=50)
 
-    # Belur Chennakeshava Knowledge Base Configuration
-    BELUR_KB_PATH: str = Field(default="data/kb/belur")
-    BELUR_KB_VERSION: str = Field(default="BELUR-KB-001 v1.0")
-    BELUR_KB_EXTRACTION_DATE: str = Field(default="2026-10-16")
-    BELUR_CHROMA_COLLECTION: str = Field(default="belur_kb_v1")
-    BELUR_IMAGES_DIR: str = Field(default="assets/belur/images")
-    SHOW_REMOTE_IMAGES: bool = Field(default=True)
-    USE_LOCAL_IMAGES: bool = Field(default=True)
-
     # Hybrid RAG Retrieval & Re-ranking Configuration
     CROSS_ENCODER_MODEL_NAME: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
     RAG_DENSE_TOP_K: int = Field(default=15)

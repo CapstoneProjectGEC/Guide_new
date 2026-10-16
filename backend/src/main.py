@@ -87,13 +87,6 @@ def create_app() -> FastAPI:
     # 5. Route Registration via Unified API v1 Gateway Router
     app.include_router(api_v1_router)
 
-    # 6. Static local assets mounting for offline images
-    from fastapi.staticfiles import StaticFiles
-    from pathlib import Path
-    assets_dir = Path("assets")
-    assets_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
-
     # Root-level health probe for container orchestrators (alias to /api/v1/health)
     @app.get("/health", include_in_schema=False)
     async def root_health_alias(cfg: Settings = Depends(get_settings)):

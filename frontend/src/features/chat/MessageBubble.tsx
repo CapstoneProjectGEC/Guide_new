@@ -1,17 +1,5 @@
 import React, { useState } from "react";
-import {
-  Copy,
-  Check,
-  Volume2,
-  ShieldCheck,
-  Clock,
-  AlertCircle,
-  AlertTriangle,
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-} from "lucide-react";
+import { Copy, Check, Volume2, ShieldCheck, Clock, AlertCircle } from "lucide-react";
 import { ChatMessage, Citation } from "@/types/api";
 import { CitationBadge } from "./CitationBadge";
 import { UI_STRINGS } from "@/theme/tokens";
@@ -32,7 +20,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onSpeakMessage,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [showSources, setShowSources] = useState(false);
   const isUser = message.role === "user";
   const t = UI_STRINGS[language];
 
@@ -99,129 +86,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Timings Uncertainty Alert Notice */}
-        {message.has_timing_uncertainty && (
-          <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold">Timings Inconsistency Note:</span> Published sources differ on whether the temple closes from 1:30 PM to 4:00 PM for rituals/cleaning or remains open continuously under ASI rules. Visitors are advised to confirm locally on arrival.
-            </div>
-          </div>
-        )}
-
-        {/* Inline Image Cards with Attribution & Hedges */}
-        {message.images && message.images.length > 0 && (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {message.images.map((img) => (
-              <div
-                key={img.image_id}
-                className="rounded-xl overflow-hidden border border-heritage-gold/25 bg-heritage-sandstone/30 dark:bg-heritage-carved-basalt/60 shadow-sm flex flex-col"
-              >
-                {img.display_url && (
-                  <div className="relative aspect-video bg-black/10 overflow-hidden">
-                    <img
-                      src={img.display_url}
-                      alt={img.caption || img.image_id}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                    <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-mono bg-black/75 text-white font-semibold">
-                      {img.image_id}
-                    </span>
-                  </div>
-                )}
-                <div className="p-2.5 flex-1 flex flex-col justify-between text-xs">
-                  {img.caption && (
-                    <p className={`text-heritage-brown dark:text-heritage-marble font-medium leading-snug mb-1.5 ${img.uncertain_caption ? "italic text-amber-700 dark:text-amber-300" : ""}`}>
-                      {img.caption}
-                    </p>
-                  )}
-                  <div className="pt-1.5 border-t border-heritage-brown/10 dark:border-heritage-gold/15 flex items-center justify-between text-[11px] text-heritage-umber dark:text-heritage-stone">
-                    <span className="font-semibold">{img.source_site}</span>
-                    {img.source_page_url && (
-                      <a
-                        href={img.source_page_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-heritage-gold hover:underline"
-                      >
-                        Source Page <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Expandable Sources Accordion & Citations */}
+        {/* Citations Badges */}
         {message.citations && message.citations.length > 0 && (
           <div className="mt-3 pt-2.5 border-t border-heritage-brown/10 dark:border-heritage-gold/15">
-            <button
-              onClick={() => setShowSources(!showSources)}
-              className="w-full flex items-center justify-between text-[11px] font-semibold text-heritage-umber dark:text-heritage-stone hover:text-heritage-gold transition-colors py-1"
-            >
-              <span className="flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-heritage-gold" />
-                Attributed Sources & Citations ({message.citations.length})
-              </span>
-              {showSources ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-
-            {showSources ? (
-              <div className="mt-2 space-y-2 animate-in fade-in duration-150">
-                {message.citations.map((c, i) => (
-                  <div
-                    key={`${c.chunk_id}-${i}`}
-                    className="p-2.5 rounded-lg bg-heritage-sandstone/50 dark:bg-heritage-deep-stone/50 border border-heritage-brown/10 dark:border-heritage-gold/15 text-xs"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold font-mono text-heritage-gold text-[11px]">
-                        {c.section_id || c.chunk_id}
-                      </span>
-                      {c.source_url && (
-                        <a
-                          href={c.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-heritage-gold hover:underline"
-                        >
-                          Source Link <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                    </div>
-                    {c.source_page_title && (
-                      <div className="text-[11px] font-medium text-heritage-brown dark:text-heritage-marble mt-0.5">
-                        {c.source_page_title}
-                      </div>
-                    )}
-                    {c.section_heading && (
-                      <div className="text-[10px] text-heritage-umber dark:text-heritage-stone mt-0.5">
-                        Section: {c.section_heading}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => onCitationClick(c)}
-                      className="mt-1.5 text-[10px] text-heritage-gold hover:underline font-semibold flex items-center gap-1"
-                    >
-                      View verbatim excerpt &rarr;
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-1.5 mt-1.5">
-                {message.citations.map((c, i) => (
-                  <CitationBadge
-                    key={`${c.chunk_id}-${i}`}
-                    citation={c}
-                    index={i}
-                    onClick={onCitationClick}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="text-[11px] font-semibold text-heritage-umber dark:text-heritage-stone mb-1.5">
+              Attributed Sources:
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {message.citations.map((c, i) => (
+                <CitationBadge
+                  key={`${c.chunk_id}-${i}`}
+                  citation={c}
+                  index={i}
+                  onClick={onCitationClick}
+                />
+              ))}
+            </div>
           </div>
         )}
 
