@@ -1,0 +1,25 @@
+url,title,site,status,content_extracted,images_found,notes,date_accessed
+https://explorekarnataka.com/heritage/,Explore Heritage – ExploreKarnataka.com,explorekarnataka.com,processed,"text, links, 6 index entries",0,Index page; fetch OK. Pagination/accordions: none observed.,2026-10-16
+https://explorekarnataka.com/heritage/belur/,Belur – The Hallmark of Hoysala Heritage – ExploreKarnataka.com,explorekarnataka.com,processed,"text, captions, images",17,"Main source for history, structures, travel. Fetch OK; images referenced but not downloaded (no network in build sandbox). No publication/modified date shown.",2026-10-16
+https://www.temples.bio/temples/chennakeshava-temple-belur/timings,Chennakeshava Temple (Belur) Timings Today | Darshan & Pooja Hours,temples.bio,processed (partial),"text, tables, metadata",2,FAQ answers collapsed and not captured (9 questions). Date shown: none; footer 2026.,2026-10-16
+https://www.temples.bio/temples/chennakeshava-temple-belur,"Chennakeshava Temple Belur – Hoysala Carvings, Timings & Guide | Temples.bio",temples.bio,processed,"text, metadata",2,"Nearby Temples list: 10 of 20 shown, 'Load more (10 left)' not expanded; the 19-temple list was taken from the city guide instead.",2026-10-16
+https://www.temples.bio/temples/chennakeshava-temple-belur/photos,Chennakeshava Temple (Belur) Photos & Gallery,temples.bio,processed,"text, 1 image",1,Gallery says '1 photo'; same file as IMG-0018.,2026-10-16
+https://www.temples.bio/temples-in-belur,"Temples in Belur: Map, Route & 1–2 Day Darshan Guide",temples.bio,processed,"text, tables, itinerary",2,City guide 'Last updated July 2026'. Table shows 12 of 19; all 19 cards were read.,2026-10-16
+https://explorekarnataka.com/heritage/aihole/,ExploreKarnataka Aihole,explorekarnataka.com,"discovered, not processed",,0,other monument; out of Belur scope,2026-10-16
+https://explorekarnataka.com/heritage/hampi/,ExploreKarnataka Hampi,explorekarnataka.com,"discovered, not processed",,0,other monument; out of Belur scope,2026-10-16
+https://explorekarnataka.com/heritage/somanathapura/,ExploreKarnataka Somanathapura,explorekarnataka.com,"discovered, not processed",,0,Hoysala temple but a different site; scope decision for you,2026-10-16
+https://explorekarnataka.com/heritage/sandur-see-sandur-in-september/,ExploreKarnataka Sandur,explorekarnataka.com,"discovered, not processed",,0,out of scope,2026-10-16
+https://explorekarnataka.com/heritage/mirjan-fort/,ExploreKarnataka Mirjan Fort,explorekarnataka.com,"discovered, not processed",,0,out of scope,2026-10-16
+https://explorekarnataka.com/divinity/,Explore Divinity,explorekarnataka.com,"discovered, not processed",,0,section index; not opened,2026-10-16
+https://explorekarnataka.com/city-tour/,Explore Cities,explorekarnataka.com,"discovered, not processed",,0,section index; not opened,2026-10-16
+https://explorekarnataka.com/blog/,Blog,explorekarnataka.com,"discovered, not processed",,0,not opened; may contain Belur posts,2026-10-16
+https://explorekarnataka.com/about-us/,About Us,explorekarnataka.com,"discovered, not processed",,0,not relevant,2026-10-16
+https://explorekarnataka.com/contact/,Contact,explorekarnataka.com,"discovered, not processed",,0,not relevant,2026-10-16
+https://www.temples.bio/temples/sakleshwara-swamy-temple-sakleshpur,Sakleshwara Swamy Temple,www.temples.bio,"discovered, not processed",,0,other temple profile (also 17 more nearby temple profiles linked from https://www.temples.bio/temples-in-belur),2026-10-16
+https://www.temples.bio/festivals,Temples.bio Festivals,www.temples.bio,"discovered, not processed",,0,may hold Belur Rathotsava details; not opened,2026-10-16
+https://www.temples.bio/temples/karnataka-temples,Karnataka Temples,www.temples.bio,"discovered, not processed",,0,directory,2026-10-16
+https://www.google.com/maps?cid=7688865978615606028,Google Maps,www.google.com,"discovered, not processed",,0,external map link; not crawled,2026-10-16
+https://www.oneindia.com/temples/chennakeshava-temple-belur-i656/,Oneindia,www.oneindia.com,search snippet only,,0,Timing split 7:30 AM–1:00 PM and 1:30–7:30 PM; Madhyana pooja 12–1 PM (OUT OF SCOPE; not crawled),2026-10-16
+https://temple.yatradham.org/temple/chennakeshava-temple,Yatradham,temple.yatradham.org,search snippet only,,0,"7:30 AM–7:30 PM; aarti 7:00–7:30 AM, 12–1 PM, 6:30–7:30 PM (OUT OF SCOPE; not crawled)",2026-10-16
+https://templetimings.in/btt/,templetimings.in,templetimings.in,search snippet only,,0,Itself notes that published timings vary between sources (OUT OF SCOPE; not crawled),2026-10-16
+https://www.southindiatoursandtravels.com/chennakeshava-temple-belur,South India Tours,www.southindiatoursandtravels.com,search snippet only,,0,6 AM–8 PM (OUT OF SCOPE; not crawled),2026-10-16
