@@ -1037,12 +1037,14 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       roughness: 0.65,
       metalness: 0.14,
       map: gopuraTierTexture,
+      side: THREE.DoubleSide,
     });
 
     const gopuraCorniceMat = new THREE.MeshStandardMaterial({
       color: 0xc89e42, // Rich amber-gold for horizontal eaves & kapotas
       roughness: 0.58,
       metalness: 0.18,
+      side: THREE.DoubleSide,
     });
 
     const gopuraWindowMat = new THREE.MeshStandardMaterial({
@@ -1351,12 +1353,12 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       worldGroup.add(mesh);
     };
     // North & South walls span seamlessly between West outer face (Z = -35.9) and East outer face (Z = 29.9)
-    // Total depth = 65.8m centered at Z = -3.0 (Zero protruding corner stubs!)
-    createWall(1.8, 3.8, 65.8, 47, -3.0); // North wall
-    createWall(1.8, 3.8, 65.8, -43, -3.0); // South wall
-    createWall(92, 3.8, 1.8, 2, -35); // West wall
-    createWall(38.5, 3.8, 1.8, -23.75, 29); // East wall South - seamlessly connects to Gopura base
-    createWall(38.5, 3.8, 1.8, 27.75, 29); // East wall North - seamlessly connects to Gopura base
+    // Full precinct outer bounding box: X [-43.9 to 47.9], Z [-35.9 to 29.9]
+    createWall(1.8, 3.8, 65.8, 47.0, -3.0); // North wall
+    createWall(1.8, 3.8, 65.8, -43.0, -3.0); // South wall
+    createWall(91.8, 3.8, 1.8, 2.0, -35.0); // West wall - flush with North & South outer corners
+    createWall(39.4, 3.8, 1.8, -24.2, 29.0); // East wall South - flush from South corner (-43.9) to Gopura (-4.5)
+    createWall(39.4, 3.8, 1.8, 28.2, 29.0); // East wall North - flush from Gopura (8.5) to North corner (47.9)
 
     // Rounded coping stone courses on wall tops (matching wide panoramic photo)
     const createCoping = (w: number, d: number, x: number, z: number) => {
@@ -1366,11 +1368,11 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       coping.receiveShadow = true;
       worldGroup.add(coping);
     };
-    createCoping(2.0, 65.8, 47, -3.0);
-    createCoping(2.0, 65.8, -43, -3.0);
-    createCoping(92, 2.0, 2, -35);
-    createCoping(38.5, 2.0, -23.75, 29);
-    createCoping(38.5, 2.0, 27.75, 29);
+    createCoping(2.0, 65.8, 47.0, -3.0);
+    createCoping(2.0, 65.8, -43.0, -3.0);
+    createCoping(91.8, 2.0, 2.0, -35.0);
+    createCoping(39.4, 2.0, -24.2, 29.0);
+    createCoping(39.4, 2.0, 28.2, 29.0);
 
     // Authentic Pillared Cloister Verandas (Prakara Colonnade matching reference Image 2 & Image 1)
     // Features: 3-tier continuous stepped ashlar plinth, dark recessed corridor gallery,
@@ -2736,6 +2738,13 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       gajaBlanketTop.castShadow = true;
       gajaBalustrade.add(gajaBlanketTop);
 
+      // Under-belly cinch girth band connecting the saddle blanket
+      const girthBand = new THREE.Mesh(new THREE.CylinderGeometry(0.365, 0.365, 0.12, 16, 1, true, 0, Math.PI), friezeMat);
+      girthBand.rotation.x = Math.PI / 2;
+      girthBand.rotation.z = Math.PI;
+      girthBand.position.set(0, 1.02, -0.02);
+      gajaBalustrade.add(girthBand);
+
       // Draped side cloth flaps with scalloped fringe
       [-0.34, 0.34].forEach((bx) => {
         const flap = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.34, 0.54), friezeMat);
@@ -2746,6 +2755,14 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
         const fringe = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.56), kappeEaveMat);
         fringe.position.set(bx, 0.83, -0.02);
         gajaBalustrade.add(fringe);
+
+        // Hanging carved tassels at blanket corners (Image 1)
+        [-0.24, 0.24].forEach((tz) => {
+          const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.045, 0.12, 8), darkBronzeMat);
+          tassel.position.set(bx + (bx > 0 ? 0.02 : -0.02), 0.74, -0.02 + tz);
+          tassel.castShadow = true;
+          gajaBalustrade.add(tassel);
+        });
       });
 
       // 5. Multi-Strand Carved Necklace & Chest Girdle with Hanging Bell (Ghanta)
@@ -2758,10 +2775,10 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       upperNeckCollar.position.set(0, 1.04, 0.38);
       gajaBalustrade.add(upperNeckCollar);
 
-      // Hanging bells (ghanta) on chest flanks
-      [-0.26, 0.26].forEach((bellX) => {
+      // Hanging bells (ghanta) across chest (front center and both flanks)
+      [-0.24, 0, 0.24].forEach((bellX) => {
         const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.075, 0.12, 8), darkBronzeMat);
-        bell.position.set(bellX, 0.84, 0.35);
+        bell.position.set(bellX, 0.84, bellX === 0 ? 0.38 : 0.35);
         bell.castShadow = true;
         gajaBalustrade.add(bell);
       });
@@ -2780,10 +2797,15 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
         gajaBalustrade.add(kumbha);
       });
 
-      // Forehead jewelry band / Mukuta
+      // Forehead jewelry band / Mukuta & central rosette medallion
       const foreheadJewel = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.06, 0.10), friezeMat);
       foreheadJewel.position.set(0, 1.28, 0.58);
       gajaBalustrade.add(foreheadJewel);
+
+      const foreheadMedallion = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 12), darkBronzeMat);
+      foreheadMedallion.rotation.x = Math.PI / 2;
+      foreheadMedallion.position.set(0, 1.24, 0.62);
+      gajaBalustrade.add(foreheadMedallion);
 
       // Fanned curved ears
       [-0.26, 0.26].forEach((earX) => {
@@ -2829,6 +2851,12 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       trunkTip.position.set(0, 0.47, 0.67);
       trunkTip.castShadow = true;
       gajaBalustrade.add(trunkTip);
+
+      // Sacred lotus bud offering held reverently in trunk curl (Image 1)
+      const lotusBud = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), friezeMat);
+      lotusBud.position.set(0, 0.48, 0.70);
+      lotusBud.castShadow = true;
+      gajaBalustrade.add(lotusBud);
 
       kappeGroup.add(gajaBalustrade);
     });
@@ -4726,20 +4754,32 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
 
     // 3. Solid Sala Shikhara Wagon Vault (Curved Barrel Roof Extrusion along X)
     const barrelLength = 5.4;
+    // Strictly Counter-Clockwise (CCW) winding order for positive outward face normals
     const vaultShape = new THREE.Shape();
-    vaultShape.moveTo(-1.35, 0);
-    vaultShape.bezierCurveTo(-1.35, 0.75, -0.75, 1.25, 0, 1.25);
-    vaultShape.bezierCurveTo(0.75, 1.25, 1.35, 0.75, 1.35, 0);
-    vaultShape.lineTo(-1.35, 0);
+    vaultShape.moveTo(1.35, 0);
+    vaultShape.bezierCurveTo(1.35, 0.75, 0.75, 1.25, 0, 1.25);
+    vaultShape.bezierCurveTo(-0.75, 1.25, -1.35, 0.75, -1.35, 0);
+    vaultShape.lineTo(1.35, 0);
 
     const vaultGeom = new THREE.ExtrudeGeometry(vaultShape, { depth: barrelLength, bevelEnabled: false, steps: 1 });
     vaultGeom.translate(0, 0, -barrelLength / 2);
+    vaultGeom.computeVertexNormals();
     const barrelVault = new THREE.Mesh(vaultGeom, gopuraStoneMat);
     barrelVault.rotation.y = Math.PI / 2;
     barrelVault.position.set(0, 19.86, 0);
     barrelVault.castShadow = true;
     barrelVault.receiveShadow = true;
     gopuraGroup.add(barrelVault);
+
+    // 100% Solid internal masonry core slab beneath the barrel vault (ZERO floating gaps under kalashas)
+    const vaultSolidCore = new THREE.Mesh(
+      new THREE.BoxGeometry(barrelLength, 1.15, 2.65),
+      gopuraStoneMat
+    );
+    vaultSolidCore.position.set(0, 20.43, 0);
+    vaultSolidCore.castShadow = true;
+    vaultSolidCore.receiveShadow = true;
+    gopuraGroup.add(vaultSolidCore);
 
     // Kapota Eave Borders on front and rear
     [-1.38, 1.38].forEach((ez) => {
@@ -4749,18 +4789,19 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       gopuraGroup.add(eave);
     });
 
-    // 4. Transverse Rib Mouldings across the curved vault surface
+    // 4. Transverse Rib Mouldings across the curved vault surface (Counter-Clockwise winding)
     const ribShape = new THREE.Shape();
-    ribShape.moveTo(-1.36, 0);
-    ribShape.bezierCurveTo(-1.36, 0.76, -0.76, 1.26, 0, 1.26);
-    ribShape.bezierCurveTo(0.76, 1.26, 1.36, 0.76, 1.36, 0);
-    ribShape.lineTo(1.33, 0);
-    ribShape.bezierCurveTo(1.33, 0.73, 0.73, 1.23, 0, 1.23);
-    ribShape.bezierCurveTo(-0.73, 1.23, -1.33, 0.73, -1.33, 0);
-    ribShape.lineTo(-1.36, 0);
+    ribShape.moveTo(1.36, 0);
+    ribShape.bezierCurveTo(1.36, 0.76, 0.76, 1.26, 0, 1.26);
+    ribShape.bezierCurveTo(-0.76, 1.26, -1.36, 0.76, -1.36, 0);
+    ribShape.lineTo(-1.33, 0);
+    ribShape.bezierCurveTo(-1.33, 0.73, -0.73, 1.23, 0, 1.23);
+    ribShape.bezierCurveTo(0.73, 1.23, 1.33, 0.73, 1.33, 0);
+    ribShape.lineTo(1.36, 0);
 
     const ribGeom = new THREE.ExtrudeGeometry(ribShape, { depth: 0.06, bevelEnabled: false, steps: 1 });
     ribGeom.translate(0, 0, -0.03);
+    ribGeom.computeVertexNormals();
 
     [-2.1, -1.4, -0.7, 0.7, 1.4, 2.1].forEach((rx) => {
       const ribMesh = new THREE.Mesh(ribGeom, gopuraCorniceMat);
@@ -4773,6 +4814,17 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
     // 5. Lateral End Gable Wall Mouldings and Horn Terminals (Karnas)
     [-1, 1].forEach((dir) => {
       const ex = dir * (barrelLength / 2);
+
+      // Solid end gable wall plate
+      const endGable = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.35, 1.35, 0.12, 24, 1, false, 0, Math.PI),
+        gopuraStoneMat
+      );
+      endGable.rotation.z = Math.PI / 2;
+      endGable.rotation.y = dir === 1 ? Math.PI / 2 : -Math.PI / 2;
+      endGable.position.set(ex, 19.86, 0);
+      endGable.castShadow = true;
+      gopuraGroup.add(endGable);
 
       // End gable arch rim moulding
       const endRim = new THREE.Mesh(ribGeom, gopuraCorniceMat);
@@ -5166,9 +5218,9 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
       garudaStatueGroup.add(scrollBulb);
     });
 
-    // Upper Semicircular Torana Arch overhead (connecting pilasters and framing crown)
+    // Upper Semicircular Torana Arch overhead (connecting seamlessly to pilasters at px = ±0.46)
     const garudaToranaArch = new THREE.Mesh(
-      new THREE.TorusGeometry(0.40, 0.065, 12, 32, Math.PI),
+      new THREE.TorusGeometry(0.46, 0.065, 12, 32, Math.PI),
       garudaSchistMat
     );
     garudaToranaArch.position.set(0, 1.70, 0.02);
@@ -5177,20 +5229,28 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
 
     // Carved outer foliage rim band
     const garudaToranaRim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.44, 0.035, 10, 32, Math.PI),
+      new THREE.TorusGeometry(0.51, 0.035, 10, 32, Math.PI),
       garudaCarvedMat
     );
     garudaToranaRim.position.set(0, 1.70, 0.00);
     garudaStatueGroup.add(garudaToranaRim);
 
+    // Inner horseshoe head-halo (Sirascakra) encircling Garuda's crown (Image 1 & 2)
+    const garudaInnerHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.24, 0.028, 10, 24, Math.PI),
+      garudaCarvedMat
+    );
+    garudaInnerHalo.position.set(0, 1.76, 0.01);
+    garudaStatueGroup.add(garudaInnerHalo);
+
     // Apex Kirtimukha crest mask at top of arch
-    const archApexCrest = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.08), garudaCarvedMat);
-    archApexCrest.position.set(0, 2.14, 0.02);
+    const archApexCrest = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.15, 0.08), garudaCarvedMat);
+    archApexCrest.position.set(0, 2.22, 0.02);
     archApexCrest.castShadow = true;
     garudaStatueGroup.add(archApexCrest);
 
     const archApexKalasha = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.14, 8), garudaCarvedMat);
-    archApexKalasha.position.set(0, 2.27, 0.02);
+    archApexKalasha.position.set(0, 2.34, 0.02);
     garudaStatueGroup.add(archApexKalasha);
 
     // Thin back connecting web behind crown for structural authenticity
@@ -5416,31 +5476,40 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
     handFlower.position.set(0, 1.57, -0.25);
     garudaStatueGroup.add(handFlower);
 
-    // 7. Spreading Eagle Wings (Paksha) with 5-Layered Carved Scalloped Feathers (Matching Image 1 & 2)
+    // 7. Spreading Eagle Wings (Paksha) with Multi-Tiered Scalloped Feathers (Matching Images 1 & 2)
+    // Wings fan wide past the Prabhavali frame with layered coverts and primary flight quills
     [-1, 1].forEach((dir) => {
       const wingGroup = new THREE.Group();
-      wingGroup.position.set(dir * 0.18, 1.46, 0.01);
+      wingGroup.position.set(dir * 0.16, 1.44, 0.01);
       garudaStatueGroup.add(wingGroup);
 
-      // Base shoulder mount covert
-      const covert = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.20, 0.045), garudaSchistMat);
-      covert.rotation.z = dir * -0.25;
-      covert.position.set(dir * 0.06, 0.02, 0);
-      wingGroup.add(covert);
+      // Inner shoulder covert plates (3 overlapping rows of small feathers)
+      [0.02, 0.08, 0.14].forEach((cx, cIdx) => {
+        const covert = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12 - cIdx * 0.02, 0.18 - cIdx * 0.03, 0.035),
+          garudaSchistMat
+        );
+        covert.rotation.z = dir * (-0.20 - cIdx * 0.15);
+        covert.position.set(dir * cx, 0.04 - cIdx * 0.04, 0.01);
+        wingGroup.add(covert);
+      });
 
-      // Layered feather definitions: angle, length, width, posX, posY, posZ
+      // 8 sweeping layered primary and secondary flight feathers fanning outward and upward
       const featherLayers = [
-        { rotZ: dir * -0.38, len: 0.36, w: 0.075, px: dir * 0.20, py: -0.06, pz: 0.01 }, // Lowest feather
-        { rotZ: dir * -0.62, len: 0.42, w: 0.078, px: dir * 0.28, py: 0.06, pz: 0.00 },
-        { rotZ: dir * -0.85, len: 0.48, w: 0.080, px: dir * 0.33, py: 0.20, pz: -0.01 }, // Middle feather
-        { rotZ: dir * -1.08, len: 0.50, w: 0.076, px: dir * 0.30, py: 0.35, pz: -0.02 },
-        { rotZ: dir * -1.28, len: 0.46, w: 0.070, px: dir * 0.20, py: 0.48, pz: -0.03 }, // Top tip feather
+        { rotZ: dir * -0.25, len: 0.32, w: 0.075, px: dir * 0.18, py: -0.12, pz: 0.01 }, // Lowest secondary
+        { rotZ: dir * -0.45, len: 0.40, w: 0.080, px: dir * 0.26, py: -0.02, pz: 0.01 },
+        { rotZ: dir * -0.68, len: 0.48, w: 0.082, px: dir * 0.34, py: 0.10, pz: 0.00 }, // Mid flight feather
+        { rotZ: dir * -0.88, len: 0.56, w: 0.084, px: dir * 0.40, py: 0.24, pz: 0.00 }, // Sweeping wing blade
+        { rotZ: dir * -1.06, len: 0.62, w: 0.080, px: dir * 0.42, py: 0.38, pz: -0.01 }, // High primary feather
+        { rotZ: dir * -1.22, len: 0.58, w: 0.076, px: dir * 0.38, py: 0.50, pz: -0.02 }, // Upper wing tip
+        { rotZ: dir * -1.36, len: 0.50, w: 0.070, px: dir * 0.28, py: 0.60, pz: -0.03 }, // Apex crest feather
+        { rotZ: dir * -1.48, len: 0.40, w: 0.065, px: dir * 0.18, py: 0.66, pz: -0.04 }, // Inward curl feather
       ];
 
       featherLayers.forEach((fl) => {
-        // Sculpted primary flight feather blade with beveled quill ridge
+        // Sculpted feather blade
         const feather = new THREE.Mesh(
-          new THREE.BoxGeometry(fl.w, fl.len, 0.032),
+          new THREE.BoxGeometry(fl.w, fl.len, 0.028),
           garudaCarvedMat
         );
         feather.rotation.z = fl.rotZ;
@@ -5448,13 +5517,13 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
         feather.castShadow = true;
         wingGroup.add(feather);
 
-        // Raised central quill rib along the feather
+        // Raised central quill shaft along the feather blade
         const quill = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.008, 0.008, fl.len * 0.95, 6),
+          new THREE.CylinderGeometry(0.008, 0.006, fl.len * 0.96, 6),
           garudaSchistMat
         );
         quill.rotation.z = fl.rotZ;
-        quill.position.set(fl.px, fl.py, fl.pz - 0.018);
+        quill.position.set(fl.px, fl.py, fl.pz - 0.016);
         wingGroup.add(quill);
       });
     });
@@ -5676,16 +5745,44 @@ export const BelurPrecinct3D: React.FC<BelurPrecinct3DProps> = ({
     pillarShaft.castShadow = true;
     pillarGroup.add(pillarShaft);
 
-    // Flared Bell Capital (Kalasa / Phalaka, as seen in photo)
+    // Flared Bell Capital (Kalasa / Phalaka, as seen in Image 2 photo)
+    const pBellCollar = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.06, 8, 16), gravityPillarMat);
+    pBellCollar.rotation.x = Math.PI / 2;
+    pBellCollar.position.y = 12.35;
+    pillarGroup.add(pBellCollar);
+
     const pBell = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.38, 0.55, 16), gravityPillarMat);
     pBell.position.y = 12.65;
     pBell.castShadow = true;
     pillarGroup.add(pBell);
 
+    // Flat square abacus capital (Phalaka slab)
     const pCap = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.40, 1.4), gravityPillarMat);
     pCap.position.y = 13.12;
     pCap.castShadow = true;
     pillarGroup.add(pCap);
+
+    // 4 hanging stone corner bells/lanterns under the abacus capital (Image 2)
+    [-0.55, 0.55].forEach((bx) => {
+      [-0.55, 0.55].forEach((bz) => {
+        const cornerBell = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.08, 0.22, 8), gravityPillarMat);
+        cornerBell.position.set(bx, 12.82, bz);
+        cornerBell.castShadow = true;
+        pillarGroup.add(cornerBell);
+      });
+    });
+
+    // Crowning decorative dome & stone finial at top of gravity pillar
+    const pCrownDome = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), gravityPillarMat);
+    pCrownDome.scale.set(1.0, 0.65, 1.0);
+    pCrownDome.position.y = 13.45;
+    pCrownDome.castShadow = true;
+    pillarGroup.add(pCrownDome);
+
+    const pCrownFinial = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.45, 12), gravityPillarMat);
+    pCrownFinial.position.y = 13.88;
+    pCrownFinial.castShadow = true;
+    pillarGroup.add(pCrownFinial);
 
     // =========================================================================
     // Shared Helper: Authentic 4-Pillar Courtyard Stone Mandapa
