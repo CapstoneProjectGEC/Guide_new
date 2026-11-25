@@ -19,6 +19,7 @@ class EmbeddingService:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
         self.model_name = model_name
         self._model: SentenceTransformer | None = None
+        self._query_cache: dict[str, list[float]] = {}
 
     @property
     def model(self) -> SentenceTransformer:
@@ -36,9 +37,15 @@ class EmbeddingService:
         return [vec.tolist() for vec in embeddings]
 
     def embed_query(self, query: str) -> list[float]:
-        """Compute embedding vector for a single query string."""
-        embedding = self.model.encode(query, convert_to_numpy=True, normalize_embeddings=True)
-        return embedding.tolist()
+        """Compute embedding vector for a single query string with in-memory caching."""
+        clean_q = query.strip()
+        if clean_q in self._query_cache:
+            return self._query_cache[clean_q]
+        embedding = self.model.encode(clean_q, convert_to_numpy=True, normalize_embeddings=True).tolist()
+        if len(self._query_cache) >= 1024:
+            self._query_cache.pop(next(iter(self._query_cache)))
+        self._query_cache[clean_q] = embedding
+        return embedding
 
     @staticmethod
     def calculate_vector_checksum(vector: list[float]) -> str:

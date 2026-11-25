@@ -72,7 +72,7 @@ HERITAGE_GLOSSARY: list[HeritageTermMapping] = [
         kannada_term="ಮದನಿಕಾ",
         english_term="Madanika",
         category="sculpture",
-        synonyms=["ಮದನಿಕೆ", "ಮದನಿಕೆಯರು", "ಶಿಲಾಬಾಲಿಕೆ", "ಶಿಲಾಬಾಲಿಕೆಯರು"],
+        synonyms=["ಮದನಿಕೆ", "ಮದನಿಕೆಯರು", "ಶಿಲಾಬಾಲಿಕೆ", "ಶಿಲಾಬಾಲಿಕೆಯರು", "ಶಿಲಾಬಾಲಿಕೆಯರ", "ಮದನಿಕೆಯರ"],
     ),
     HeritageTermMapping(
         kannada_term="ದರ್ಪಣ ಸುಂದರಿ",
@@ -134,7 +134,18 @@ HERITAGE_GLOSSARY: list[HeritageTermMapping] = [
         kannada_term="ನವರಂಗ",
         english_term="Navaranga",
         category="architecture",
-        synonyms=["ಮಧ್ಯ ರಂಗ"],
+        synonyms=[
+            "ಮಧ್ಯ ರಂಗ",
+            "ಮಧ್ಯರಂಗ",
+            "ಮುಖ್ಯ ಸಭಾಂಗಣ",
+            "ಮುಖ್ಯ ಸಭಾಂಗಣದಲ್ಲಿರುವ",
+            "ಮುಖ್ಯ ಸಭಾಂಗಣದಲ್ಲಿ",
+            "ಸಭಾಂಗಣ",
+            "ಸಭಾಂಗಣದಲ್ಲಿ",
+            "ನವರಂಗದ",
+            "ನವರಂಗದಲ್ಲಿ",
+            "ನವರಂಗ ಮಂಟಪ",
+        ],
     ),
     HeritageTermMapping(
         kannada_term="ಮಂಟಪ",
@@ -152,7 +163,32 @@ HERITAGE_GLOSSARY: list[HeritageTermMapping] = [
         kannada_term="ಗರುಡ ಗಂಭ",
         english_term="Garuda Stambha",
         category="architecture",
-        synonyms=["ಗರುಡ ಕಂಬ", "ದೀಪಸ್ತಂಭ"],
+        synonyms=["ಗರುಡ ಕಂಬ", "ದೀಪಸ್ತಂಭ", "ಗರುಡ ಕಂಬದ"],
+    ),
+    HeritageTermMapping(
+        kannada_term="ಮೋಹಿನಿ ಕಂಬ",
+        english_term="Mohini Pillar",
+        category="architecture",
+        synonyms=["ಮೋಹಿನಿ ಸ್ತಂಭ", "ಮೋಹಿನಿ ಕಂಬದ"],
+    ),
+    HeritageTermMapping(
+        kannada_term="ನರಸಿಂಹ ಕಂಬ",
+        english_term="Narasimha Pillar",
+        category="architecture",
+        synonyms=["ನರಸಿಂಹ ಸ್ತಂಭ", "ನರಸಿಂಹ ಕಂಬದ"],
+    ),
+    HeritageTermMapping(
+        kannada_term="ಹೊಳಪು ನೀಡಿದ ಕಂಬಗಳು",
+        english_term="lathe-turned polished round pillars",
+        category="architecture",
+        synonyms=[
+            "ಹೊಳಪು ನೀಡಿದ ದುಂಡಗಿನ ಕಂಬಗಳು",
+            "ಹೊಳಪು ನೀಡಿದ ದುಂಡಗಿನ ಕಂಬಗಳನ್ನು",
+            "ಹೊಳಪಿನ ಕಂಬಗಳು",
+            "ದುಂಡಗಿನ ಕಂಬಗಳು",
+            "ದುಂಡಗಿನ ಕಂಬಗಳನ್ನು",
+            "ದುಂಡನೆಯ ಕಂಬಗಳು",
+        ],
     ),
     HeritageTermMapping(
         kannada_term="ಜಗತಿ",
@@ -195,9 +231,19 @@ HERITAGE_GLOSSARY: list[HeritageTermMapping] = [
 
 # Query intent keywords mapped from Kannada to English retrieval equivalents
 INTENT_TERMS_MAP: list[tuple[re.Pattern, str]] = [
+    # Multi-part Inquiries (Who AND When)
+    (re.compile(r"(?=.*ಯಾರು)(?=.*ಯಾವಾಗ)", re.IGNORECASE), "who built commissioned constructed when was it built construction year century date"),
     # Construction / Patronage inquiries
-    (re.compile(r"(ಯಾರು\s*ಕಟ್ಟಿಸಿದರು|ಯಾರು\s*ನಿರ್ಮಿಸಿದರು|ಕಟ್ಟಿಸಿದವರು\s*ಯಾರು|ನಿರ್ಮಿಸಿದವರು\s*ಯಾರು|ಯಾರು\s*ಕಟ್ಟಿಸಿದ್ದು|ಕಟ್ಟಿಸಿದ\s*ರಾಜ\s*ಯಾರು)", re.IGNORECASE), "who built commissioned constructed"),
-    (re.compile(r"(ಯಾವಾಗ\s*ಕಟ್ಟಲಾಯಿತು|ಯಾವಾಗ\s*ನಿರ್ಮಿಸಲಾಯಿತು|ಕಟ್ಟಿದ\s*ವರ್ಷ|ಯಾವ\s*ವರ್ಷ|ಯಾವ\s*ಶತಮಾನ)", re.IGNORECASE), "when was it built construction year century"),
+    (re.compile(r"(ಯಾರು\s*ಕಟ್ಟಿಸಿದರು|ಯಾರು\s*ನಿರ್ಮಿಸಿದರು|ಕಟ್ಟಿಸಿದವರು\s*ಯಾರು|ನಿರ್ಮಿಸಿದವರು\s*ಯಾರು|ಯಾರು\s*ಕಟ್ಟಿಸಿದ್ದು|ಕಟ್ಟಿಸಿದ\s*ರಾಜ\s*ಯಾರು|ಯಾರು)", re.IGNORECASE), "who built commissioned constructed"),
+    (re.compile(r"(ಯಾವಾಗ\s*ಕಟ್ಟಲಾಯಿತು|ಯಾವಾಗ\s*ನಿರ್ಮಿಸಲಾಯಿತು|ಕಟ್ಟಿದ\s*ವರ್ಷ|ಯಾವ\s*ವರ್ಷ|ಯಾವ\s*ಶತಮಾನ|ಯಾವಾಗ)", re.IGNORECASE), "when was it built construction year century date"),
+    # Construction technique / method / lathe inquiries
+    (
+        re.compile(
+            r"(ಹೇಗೆ\s*ಮಾಡಲಾಗಿದೆ|ಹೇಗೆ\s*ಮಾಡಲಾಯಿತು|ಹೇಗೆ\s*ಮಾಡಿದರು|ಹೇಗೆ\s*ತಯಾರಿಸಲಾಗಿದೆ|ಹೇಗೆ\s*ತಯಾರಿಸಲಾಯಿತು|ಹೇಗೆ\s*ತಯಾರಿಸಿದರು|ಹೇಗೆ\s*ನಿರ್ಮಿಸಲಾಗಿದೆ|ಹೇಗೆ\s*ನಿರ್ಮಿಸಿದರು|ಹೇಗೆ\s*ರೂಪಿಸಲಾಗಿದೆ|ತಯಾರಿಸುವ\s*ವಿಧಾನ|ನಿರ್ಮಾಣ\s*ವಿಧಾನ|ಕೆತ್ತಿದ\s*ವಿಧಾನ|ಮಾಡಿದ\s*ವಿಧಾನ|ತಂತ್ರಜ್ಞಾನ|ತಂತ್ರ)",
+            re.IGNORECASE,
+        ),
+        "how made crafted constructed technique method lathe turned",
+    ),
     # Location inquiries
     (re.compile(r"(ಎಲ್ಲಿದೆ|ಯಾವ\s*ಸ್ಥಳ|ಎಲ್ಲಿ\s*ಇದೆ|ಸ್ಥಳ\s*ಯಾವುದು|ಹೇಗೆ\s*ತಲುಪುವುದು)", re.IGNORECASE), "where is located location directions route"),
     # Architectural inquiries
@@ -207,6 +253,10 @@ INTENT_TERMS_MAP: list[tuple[re.Pattern, str]] = [
     # Practical tourist inquiries
     (re.compile(r"(ಪ್ರವೇಶ\s*ಶುಲ್ಕ|ಟಿಕೆಟ್|ದರ್ಶನ\s*ಶುಲ್ಕ|ಟಿಕೆಟ್\s*ದರ)", re.IGNORECASE), "entry fee ticket price admission"),
     (re.compile(r"(ಸಮಯ|ತೆರೆಯುವ\s*ಸಮಯ|ದರ್ಶನ\s*ಸಮಯ|ಯಾವಾಗ\s*ತೆರೆಯುತ್ತದೆ)", re.IGNORECASE), "temple timings opening hours visiting time"),
+    # Material inquiries
+    (re.compile(r"(ಕಲ್ಲು|ಕಲ್ಲಿನಿಂದ|ಕಲ್ಲನ್ನು|ವಸ್ತು|ಸಾಮಗ್ರಿ|ಯಾವ\s*ಕಲ್ಲು|ಶಿಲೆ|ಶಿಲೆಯಿಂದ)", re.IGNORECASE), "material stone soapstone chloritic schist"),
+    # Count / Quantity inquiries
+    (re.compile(r"(ಎಷ್ಟು|ಎಷ್ಟಿವೆ|ಸಂಖ್ಯೆ|ಒಟ್ಟು\s*ಸಂಖ್ಯೆ|ಒಟ್ಟು)", re.IGNORECASE), "how many count total number figures"),
     # Historical / Significance inquiries
     (re.compile(r"(ಇತಿಹಾಸ|ಹಿನ್ನೆಲೆ|ಪುರಾಣ|ಕಥೆ)", re.IGNORECASE), "history historical background"),
     (re.compile(r"(ಮಹತ್ವ|ವಿಶೇಷತೆ|ವೈಶಿಷ್ಟ್ಯ|ಪ್ರಸಿದ್ಧಿ)", re.IGNORECASE), "significance unique features importance"),

@@ -5,7 +5,7 @@ from pathlib import Path
 import uuid
 import fitz  # PyMuPDF
 from backend.src.core.config import get_settings
-from backend.src.core.errors import NotFoundError
+from backend.src.core.errors import NotFoundError, StorageError
 from backend.src.core.logging import get_logger
 
 logger = get_logger("infrastructure.storage")
@@ -61,13 +61,28 @@ class LocalStorageService:
         return path.read_bytes()
 
     def delete_file(self, storage_path: str) -> bool:
-        """Delete file from disk."""
+        """Delete file from disk with idempotent missing-file handling.
+
+        Returns:
+            True if file existed and was unlinked, False if file was already missing.
+
+        Raises:
+            StorageError: If unlinking fails due to permissions or filesystem I/O errors.
+        """
         path = Path(storage_path)
-        if path.exists() and path.is_file():
-            path.unlink()
+        try:
+            if not path.exists():
+                logger.warning("file_already_missing_on_delete", path=storage_path)
+                return False
+            path.unlink(missing_ok=True)
             logger.info("file_deleted", path=storage_path)
             return True
-        return False
+        except PermissionError as exc:
+            logger.error("file_deletion_permission_denied", path=storage_path, error=str(exc))
+            raise StorageError(f"Permission denied deleting file at {storage_path}: {exc}") from exc
+        except OSError as exc:
+            logger.error("file_deletion_io_error", path=storage_path, error=str(exc))
+            raise StorageError(f"Filesystem error deleting file at {storage_path}: {exc}") from exc
 
 
 _storage_service: LocalStorageService | None = None

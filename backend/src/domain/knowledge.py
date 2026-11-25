@@ -96,6 +96,10 @@ class BuildGenerationRequest(BaseModel):
         default=None,
         description="Optional list of specific document UUIDs to index. Defaults to all ingested documents.",
     )
+    auto_promote: bool = Field(
+        default=True,
+        description="Whether to automatically promote the generation if validation passes. Defaults to True.",
+    )
 
 
 class RollbackRequest(BaseModel):

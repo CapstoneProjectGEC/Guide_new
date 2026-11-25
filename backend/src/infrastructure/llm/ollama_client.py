@@ -65,6 +65,7 @@ class OllamaClient:
         top_k: int | None = None,
         top_p: float | None = None,
         keep_alive: str | None = None,
+        stop: list[str] | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream generation tokens from local Ollama /api/generate endpoint."""
         settings = get_settings()
@@ -73,6 +74,15 @@ class OllamaClient:
 
         ka_raw = keep_alive or settings.OLLAMA_KEEP_ALIVE
         ka_val: Any = -1 if str(ka_raw).strip() == "-1" else ka_raw
+
+        stop_sequences = stop if stop is not None else [
+            "Tourist Question:",
+            "\nTourist:",
+            "\nTourist Question",
+            "\nHuman:",
+            "\nUser:",
+            "\nContext:",
+        ]
 
         payload: dict[str, Any] = {
             "model": target_model,
@@ -85,6 +95,7 @@ class OllamaClient:
                 "temperature": temperature if temperature is not None else settings.OLLAMA_TEMPERATURE,
                 "top_k": top_k or settings.OLLAMA_TOP_K,
                 "top_p": top_p if top_p is not None else settings.OLLAMA_TOP_P,
+                "stop": stop_sequences,
             },
         }
         if system_prompt:
@@ -148,6 +159,26 @@ class OllamaClient:
                 "Ollama inference timed out. Consider reducing num_predict or context tokens.",
                 details={"error": str(exc)},
             ) from exc
+
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        num_ctx: int | None = None,
+        num_predict: int | None = None,
+    ) -> str:
+        """Non-streaming generate helper accumulating tokens from stream_generate."""
+        tokens: list[str] = []
+        async for token in self.stream_generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model=model,
+            num_ctx=num_ctx,
+            num_predict=num_predict,
+        ):
+            tokens.append(token)
+        return "".join(tokens).strip()
 
     async def get_model_info(self, model: str | None = None) -> dict[str, Any]:
         """Fetch details of an installed model via /api/show."""

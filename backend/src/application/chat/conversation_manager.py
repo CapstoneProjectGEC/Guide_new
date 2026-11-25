@@ -2,17 +2,24 @@
 
 import json
 from datetime import datetime
+from pathlib import Path
 import re
 import time
 import uuid
 from typing import AsyncGenerator
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.src.application.chat.grounding_guard import GroundingGuard
+from backend.src.application.chat.grounding_guard import (
+    GroundingGuard,
+    CANONICAL_FALLBACK_EN,
+    CANONICAL_FALLBACK_KN,
+)
 from backend.src.application.chat.language_detector import LanguageDetector
 from backend.src.application.chat.prompt_builder import PromptBuilder
 from backend.src.application.rag.retriever import HybridRAGRetriever
+from backend.src.application.translation.fact_validator import FactPreservationValidator
 from backend.src.application.translation.query_normalizer import QueryNormalizer
+from backend.src.application.translation.translator import TranslationService
 from backend.src.core.errors import NotFoundError
 from backend.src.core.logging import get_logger
 from backend.src.domain.conversation import (
@@ -47,6 +54,7 @@ class ConversationManager:
         ollama_client: OllamaClient | None = None,
         prompt_builder: PromptBuilder | None = None,
         query_normalizer: QueryNormalizer | None = None,
+        translation_service: TranslationService | None = None,
     ) -> None:
         self.session = session
         self.retriever = retriever or HybridRAGRetriever(session=session)
@@ -55,6 +63,7 @@ class ConversationManager:
         self.ollama = ollama_client or get_ollama_client()
         self.prompt_builder = prompt_builder or PromptBuilder()
         self.query_normalizer = query_normalizer or QueryNormalizer()
+        self.translation_service = translation_service or TranslationService()
 
     async def get_or_create_session(
         self,
@@ -129,9 +138,15 @@ class ConversationManager:
 
         # 6. Cross-Lingual Query Normalization for Knowledge Retrieval
         retrieval_query = reformulated_query
+        llm_question_en = reformulated_query
         if active_language == "kn" or self.language_detector.detect(reformulated_query).is_mixed:
             normalized = self.query_normalizer.normalize_for_retrieval(reformulated_query, source_lang=active_language)
             retrieval_query = normalized.retrieval_query
+            translated_q = self.translation_service.translate_text(reformulated_query, "kn", "en")
+            if translated_q and len(translated_q.split()) >= 3:
+                llm_question_en = translated_q
+            else:
+                llm_question_en = retrieval_query
 
         # 7. Execute Hybrid RAG Retrieval
         candidates = await self.retriever.retrieve(
@@ -151,7 +166,47 @@ class ConversationManager:
         else:
             is_grounded = True
             selected_chunks = grounding_result.selected_chunks
-            assistant_content = self._format_grounded_answer(selected_chunks, active_language)
+
+            # Prompt Ollama in English for high-speed factual grounding
+            system_prompt, user_prompt = self.prompt_builder.build_prompt(
+                query=llm_question_en if active_language == "kn" else request.content,
+                evidence_chunks=selected_chunks,
+                language="en",
+                history=history,
+            )
+            raw_answer = ""
+            try:
+                raw_answer = await self.ollama.generate(prompt=user_prompt, system_prompt=system_prompt)
+            except Exception as exc:
+                logger.warning("ollama_generate_fallback", error=str(exc))
+                raw_answer = self._format_grounded_answer(selected_chunks, "en")
+
+            cleaned = raw_answer.strip()
+            for prefix in ("Guide Answer (1-2 sentences):", "Guide Answer:", "Guide:", "Tourist Question:", "ಮಾರ್ಗದರ್ಶಿ:", "ಉತ್ತರ:"):
+                if cleaned.startswith(prefix):
+                    cleaned = cleaned[len(prefix):].strip()
+
+            # Verify English response against evidence chunks before translating
+            is_grounded, verified_content = self.grounding_guard.verify_response(
+                response_text=cleaned,
+                query=request.content,
+                evidence_chunks=selected_chunks,
+                language="en",
+            )
+            if not is_grounded:
+                assistant_content = CANONICAL_FALLBACK_KN if active_language == "kn" else CANONICAL_FALLBACK_EN
+                selected_chunks = []
+            else:
+                if active_language == "kn":
+                    translated_kn = self.translation_service.translate_text(cleaned, "en", "kn")
+                    valid, missing = FactPreservationValidator.validate(cleaned, translated_kn)
+                    if not valid:
+                        logger.warning("retrying_translation_due_to_missing_facts", missing=missing)
+                        translated_kn = self.translation_service.translate_text(cleaned, "en", "kn")
+                        valid, missing = FactPreservationValidator.validate(cleaned, translated_kn)
+                    assistant_content = translated_kn
+                else:
+                    assistant_content = verified_content
 
         latency_ms = int((time.perf_counter() - t_start) * 1000.0)
 
@@ -169,10 +224,11 @@ class ConversationManager:
         self.session.add(assistant_msg)
         await self.session.flush()
 
-        # 10. Map Citations & Relational References
+        # 10. Map Citations & Relational References with strict claim-to-evidence matching
         domain_citations: list[Citation] = []
         if is_grounded and selected_chunks:
-            domain_citations = await self._record_citations(assistant_msg.id, selected_chunks)
+            supported_chunks = self._select_relevant_citations(selected_chunks, f"{request.content} {assistant_content}")
+            domain_citations = await self._record_citations(assistant_msg.id, supported_chunks)
 
         await self.session.commit()
         await self.session.refresh(assistant_msg)
@@ -204,6 +260,7 @@ class ConversationManager:
     async def process_message_stream(self, request: SendMessageRequest) -> AsyncGenerator[str, None]:
         """Stream conversational response tokens over SSE while preserving grounding and citation guarantees."""
         t_start = time.perf_counter()
+        stage_timings: dict[str, float] = {}
 
         # 1. Resolve or create chat session
         chat_session = await self.get_or_create_session(
@@ -213,10 +270,12 @@ class ConversationManager:
         )
 
         # 2. Language Auto-Detection
+        t_lang = time.perf_counter()
         detection = self.language_detector.detect(
             text=request.content,
             fallback_language=chat_session.preferred_language,
         )
+        stage_timings["language_detection_ms"] = round((time.perf_counter() - t_lang) * 1000.0, 2)
         active_language = request.preferred_language or detection.language
         chat_session.preferred_language = active_language
         chat_session.last_active_at = utc_now()
@@ -242,17 +301,21 @@ class ConversationManager:
         await self.session.flush()
 
         # 6. Cross-Lingual Query Normalization for Knowledge Retrieval
+        t_qtrans = time.perf_counter()
         retrieval_query = reformulated_query
         if active_language == "kn" or self.language_detector.detect(reformulated_query).is_mixed:
             normalized = self.query_normalizer.normalize_for_retrieval(reformulated_query, source_lang=active_language)
             retrieval_query = normalized.retrieval_query
+        stage_timings["query_translation_ms"] = round((time.perf_counter() - t_qtrans) * 1000.0, 2)
 
         # 7. Execute Hybrid RAG Retrieval
+        t_retrieval = time.perf_counter()
         candidates = await self.retriever.retrieve(
             query=retrieval_query,
             top_final=4,
             threshold=0.35,
         )
+        stage_timings["retrieval_ms"] = round((time.perf_counter() - t_retrieval) * 1000.0, 2)
 
         # 7. Evaluate Strict Grounding Guard
         grounding_result = self.grounding_guard.evaluate(candidates, language=active_language)
@@ -296,6 +359,20 @@ class ConversationManager:
         # Evidence is grounded!
         selected_chunks = grounding_result.selected_chunks
 
+        # Determine English query for high-speed factual Ollama generation (~400ms)
+        llm_query = request.content
+        if active_language == "kn":
+            norm = self.query_normalizer.normalize_for_retrieval(
+                reformulated_query, source_lang="kn", target_lang="en"
+            )
+            llm_query = norm.retrieval_query or retrieval_query
+
+        # Filter citations to only relevant evidence chunks using token, number, and concept overlap
+        citation_context = f"{request.content} {llm_query}"
+        relevant_chunks = self._select_relevant_citations(selected_chunks, citation_context)
+        if not relevant_chunks:
+            relevant_chunks = selected_chunks
+
         assistant_msg = ChatMessage(
             session_id=chat_session.id,
             role="assistant",
@@ -309,43 +386,171 @@ class ConversationManager:
         self.session.add(assistant_msg)
         await self.session.flush()
 
-        # Record citations and stream citation metadata immediately
-        domain_citations = await self._record_citations(assistant_msg.id, selected_chunks)
+        # Record and stream relevant citations
+        domain_citations = await self._record_citations(assistant_msg.id, relevant_chunks)
         citations_data = [cit.model_dump() for cit in domain_citations]
         yield f"event: citations\ndata: {json.dumps({'citations': citations_data}, ensure_ascii=False)}\n\n"
 
         # Build grounded prompt
+        # We always prompt Ollama in English for high-speed factual precision (~500ms),
+        # preventing the 14-second repetition loop that occurs when prompting 3B models in Kannada.
         system_prompt, user_prompt = self.prompt_builder.build_prompt(
-            query=request.content,
-            evidence_chunks=selected_chunks,
-            language=active_language,
+            query=llm_query,
+            evidence_chunks=relevant_chunks,
+            language="en",
             history=history,
         )
 
         tokens_accum: list[str] = []
-        try:
-            async for token in self.ollama.stream_generate(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-            ):
-                tokens_accum.append(token)
-                yield f"event: token\ndata: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+        t_llm_start = time.perf_counter()
+        first_token_seen = False
 
-        except Exception as exc:
-            logger.warning("ollama_stream_generation_fallback", error=str(exc))
-            # If Ollama service is unavailable or times out, fallback to verified ground truth chunks directly
-            grounded_fallback = self._format_grounded_answer(selected_chunks, active_language)
-            tokens_accum = [grounded_fallback]
-            for word in grounded_fallback.split():
+        if active_language == "en":
+            try:
+                async for token in self.ollama.stream_generate(
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
+                ):
+                    if not first_token_seen:
+                        stage_timings["llm_ttft_ms"] = round((time.perf_counter() - t_llm_start) * 1000.0, 2)
+                        first_token_seen = True
+                    tokens_accum.append(token)
+                    yield f"event: token\ndata: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+
+            except Exception as exc:
+                logger.warning("ollama_stream_generation_fallback", error=str(exc))
+                grounded_fallback = self._format_grounded_answer(relevant_chunks, "en")
+                tokens_accum = [grounded_fallback]
+                for word in grounded_fallback.split():
+                    yield f"event: token\ndata: {json.dumps({'token': word + ' '}, ensure_ascii=False)}\n\n"
+
+            stage_timings["llm_generation_ms"] = round((time.perf_counter() - t_llm_start) * 1000.0, 2)
+            raw_final_content = "".join(tokens_accum).strip()
+            cleaned_content = raw_final_content
+            for prefix in ("Guide Answer (1-2 sentences):", "Guide Answer:", "Guide:", "Tourist Question:"):
+                if cleaned_content.startswith(prefix):
+                    cleaned_content = cleaned_content[len(prefix):].strip()
+
+            is_grounded, verified_content = self.grounding_guard.verify_response(
+                response_text=cleaned_content,
+                query=request.content,
+                evidence_chunks=relevant_chunks,
+                language="en",
+            )
+
+            if not is_grounded:
+                if verified_content != CANONICAL_FALLBACK_EN:
+                    grounded_body = self._format_grounded_answer(relevant_chunks, "en")
+                    is_grounded, verified_content = self.grounding_guard.verify_response(
+                        response_text=grounded_body,
+                        query=request.content,
+                        evidence_chunks=relevant_chunks,
+                        language="en",
+                    )
+                if verified_content != cleaned_content and verified_content != CANONICAL_FALLBACK_EN:
+                    yield f"event: token\ndata: {json.dumps({'token': ' ' + verified_content}, ensure_ascii=False)}\n\n"
+
+        else:
+            # active_language == "kn"
+            try:
+                async for token in self.ollama.stream_generate(
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
+                ):
+                    if not first_token_seen:
+                        stage_timings["llm_ttft_ms"] = round((time.perf_counter() - t_llm_start) * 1000.0, 2)
+                        first_token_seen = True
+                    tokens_accum.append(token)
+            except Exception as exc:
+                logger.warning("ollama_stream_generation_fallback", error=str(exc))
+                grounded_fallback = self._format_grounded_answer(relevant_chunks, "en")
+                tokens_accum = [grounded_fallback]
+
+            stage_timings["llm_generation_ms"] = round((time.perf_counter() - t_llm_start) * 1000.0, 2)
+            raw_final_content = "".join(tokens_accum).strip()
+            cleaned_en = raw_final_content
+            for prefix in ("Guide Answer (1-2 sentences):", "Guide Answer:", "Guide:", "Tourist Question:"):
+                if cleaned_en.startswith(prefix):
+                    cleaned_en = cleaned_en[len(prefix):].strip()
+
+            # Ensure clean sentence boundary before translation to prevent mid-sentence cuts
+            match = re.search(r"^(.*[.!?])(?:\s+[^.!?]*)$", cleaned_en, re.DOTALL)
+            if match and match.group(1).strip():
+                cleaned_en = match.group(1).strip()
+
+            # Verify English output against evidence chunks before translating
+            is_grounded, verified_content = self.grounding_guard.verify_response(
+                response_text=cleaned_en,
+                query=request.content,
+                evidence_chunks=relevant_chunks,
+                language="en",
+            )
+            if not is_grounded:
+                verified_content = CANONICAL_FALLBACK_KN
+            else:
+                # Translate factual English answer to authentic Kannada
+                t_ans_trans = time.perf_counter()
+                translated_kn = self.translation_service.translate_text(
+                    text=cleaned_en,
+                    source_language="en",
+                    target_language="kn",
+                )
+                stage_timings["answer_translation_ms"] = round((time.perf_counter() - t_ans_trans) * 1000.0, 2)
+
+                # Fact-preservation check
+                t_fact = time.perf_counter()
+                is_fact_valid, missing_facts = FactPreservationValidator.validate(cleaned_en, translated_kn)
+                if not is_fact_valid:
+                    logger.warning("fact_preservation_issue", missing=missing_facts)
+                    # Production retry path for fact preservation
+                    retry_kn = self.translation_service.translate_text(cleaned_en, "en", "kn")
+                    is_retry_valid, retry_missing = FactPreservationValidator.validate(cleaned_en, retry_kn)
+                    if is_retry_valid:
+                        translated_kn = retry_kn
+                        logger.info("fact_preservation_retry_succeeded")
+                    else:
+                        logger.warning("fact_preservation_retry_still_missing", missing=retry_missing)
+                stage_timings["fact_validation_ms"] = round((time.perf_counter() - t_fact) * 1000.0, 2)
+                verified_content = translated_kn
+
+            # Stream the verified Kannada response tokens to the client
+            t_sse = time.perf_counter()
+            for word in verified_content.split():
                 yield f"event: token\ndata: {json.dumps({'token': word + ' '}, ensure_ascii=False)}\n\n"
-
-        final_content = "".join(tokens_accum).strip()
-        if not final_content:
-            final_content = self._format_grounded_answer(selected_chunks, active_language)
+            stage_timings["sse_serialization_ms"] = round((time.perf_counter() - t_sse) * 1000.0, 2)
 
         latency_ms = int((time.perf_counter() - t_start) * 1000.0)
-        assistant_msg.content = final_content
+        stage_timings["total_ms"] = latency_ms
+        assistant_msg.content = verified_content
+        assistant_msg.is_grounded = is_grounded
         assistant_msg.latency_ms = latency_ms
+
+        # Log structured request timing entry
+        try:
+            timing_log = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "query": request.content,
+                "language": active_language,
+                "is_grounded": is_grounded,
+                "stage_timings": stage_timings,
+            }
+            log_f = Path("logs/request_timings.jsonl")
+            log_f.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_f, "a", encoding="utf-8") as f:
+                f.write(json.dumps(timing_log, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
+
+        # If ungrounded or fallback, delete any recorded citation references so ungrounded turns are not falsely verified
+        if not is_grounded:
+            delete_cit_stmt = (
+                select(CitationReference)
+                .where(CitationReference.message_id == assistant_msg.id)
+            )
+            cit_res = await self.session.execute(delete_cit_stmt)
+            for cit_obj in cit_res.scalars().all():
+                await self.session.delete(cit_obj)
+
         self.session.add(assistant_msg)
         await self.session.commit()
         await self.session.refresh(assistant_msg)
@@ -353,7 +558,7 @@ class ConversationManager:
         done_payload = {
             "message_id": assistant_msg.id,
             "session_id": chat_session.id,
-            "is_grounded": True,
+            "is_grounded": is_grounded,
             "detected_language": active_language,
             "latency_ms": latency_ms,
         }
@@ -445,16 +650,116 @@ class ConversationManager:
 
         return query
 
-    @staticmethod
-    def _format_grounded_answer(chunks: list[RetrievalCandidate], language: str) -> str:
+    def _format_grounded_answer(self, chunks: list[RetrievalCandidate], language: str) -> str:
         """Format response text grounded directly on retrieved evidence chunks."""
+        fallback = CANONICAL_FALLBACK_KN if language == "kn" else CANONICAL_FALLBACK_EN
         if not chunks:
-            return "Information is not available in the knowledge base."
+            return fallback
 
-        # Aggregate evidence content cleanly
-        excerpts = [c.content.strip() for c in chunks[:2]]
-        combined_text = "\n\n".join(excerpts)
+        # Aggregate evidence content cleanly, stripping duplicate leading headings
+        body_parts: list[str] = []
+        for c in chunks[:2]:
+            lines = c.content.strip().splitlines()
+            if len(lines) > 1 and c.section_heading and lines[0].strip().lower() == c.section_heading.strip().lower():
+                body = "\n".join(lines[1:]).strip()
+            else:
+                body = c.content.strip()
+            if body:
+                body_parts.append(body)
+
+        combined_text = "\n\n".join(body_parts).strip()
+        if len(combined_text.split()) < 4:
+            return fallback
+
+        if language == "kn":
+            return self.translation_service.translate_text(combined_text, "en", "kn")
         return combined_text
+
+    @staticmethod
+    def _select_relevant_citations(
+        candidates: list[RetrievalCandidate],
+        context_text: str,
+    ) -> list[RetrievalCandidate]:
+        """Filter citations to only include chunks that factually support claims in context_text.
+
+        Uses token and number overlap across English/Kannada terms and architectural concepts,
+        ensuring multi-part queries cite all relevant chunks while single-topic queries isolate
+        to their exact evidence chunk.
+        """
+        if not candidates or not context_text.strip():
+            return []
+
+        if context_text in (CANONICAL_FALLBACK_EN, CANONICAL_FALLBACK_KN):
+            return []
+
+        ctx_lower = context_text.lower()
+        supported: list[RetrievalCandidate] = []
+
+        STEM_MAP: dict[str, set[str]] = {
+            "built": {"built", "commissioned", "commission", "inception", "construct", "builder", "ನಿರ್ಮಿಸಿದ", "ಕಟ್ಟಿಸಿದ", "ಕಟ್ಟಿಸಿದರು"},
+            "patron": {"king", "ruler", "patron", "vishnuvardhana", "victory", "talakad", "chola", "ದೊರೆ", "ರಾಜ", "ವಿಷ್ಣುವರ್ಧನ", "ತಲಕಾಡು", "ಚೋಳ"},
+            "date": {"1117", "103", "year", "date", "century", "ಯಾವಾಗ", "ವರ್ಷ", "೧೧೧೭"},
+            "deity": {"deity", "idol", "lord", "vishnu", "god", "shankha", "chakra", "gada", "padma", "ವಿಗ್ರಹ", "ದೇವರು", "ದೇವತೆ", "ಶಂಖ", "ಚಕ್ರ"},
+            "sanctum": {"sanctum", "garbhagriha", "black stone", "ಗರ್ಭಗೃಹ", "ಗರ್ಭಗುಡಿ", "ಪವಿತ್ರಸ್ಥಾನ", "ಕೃಷ್ಣಶಿಲೆ"},
+            "pillar": {"pillar", "pillars", "lathe", "stambha", "narasimha pillar", "mohar", "ಕಂಬಗಳು", "ಖಂಬ", "ಸ್ತಂಭ"},
+            "madanika": {"madanika", "bracket", "salabhanjika", "darpana", "sundari", "42", "38", "ಮದನಿಕಾ", "ಶಿಲಾಬಾಲಿಕೆ", "ದರ್ಪಣ", "೪೨", "೩೮"},
+            "frieze": {"frieze", "friezes", "elephant", "relief", "tier", "horse", "lion", "650", "ಸಾಲಿನ", "ಆನೆ", "೬೫೦"},
+            "material": {"soapstone", "chloritic", "schist", "metamorphic", "stellate", "jagati", "ಬಳಪದ", "ಸೋಪ್", "ಜಗತಿ", "ನಕ್ಷತ್ರಾಕಾರ"},
+        }
+
+        # Stop words that should not drive citation overlap
+        stops = {
+            "the", "and", "was", "were", "for", "with", "from", "that", "this", "over", "into",
+            "what", "who", "when", "where", "how", "temple", "belur", "chennakeshava", "ಮತ್ತು",
+            "ಇದೆ", "ನಲ್ಲಿ", "ಆಗಿದೆ", "are", "which", "about", "tell", "explain", "details"
+        }
+
+        ctx_tokens = set(re.findall(r"[a-zA-Z0-9\u0c80-\u0cff]{3,}", ctx_lower)) - stops
+        ctx_nums = set(re.findall(r"\b\d+\b", ctx_lower))
+
+        for cand in candidates:
+            cand_lower = (cand.content + " " + (cand.section_heading or "")).lower()
+            cand_tokens = set(re.findall(r"[a-zA-Z0-9\u0c80-\u0cff]{3,}", cand_lower)) - stops
+            cand_nums = set(re.findall(r"\b\d+\b", cand_lower))
+
+            # 1. Number / Year exact overlap
+            if ctx_nums and (ctx_nums & cand_nums):
+                supported.append(cand)
+                continue
+
+            # 2. Distinctive token overlap (>= 2 significant non-stopwords)
+            overlap = ctx_tokens & cand_tokens
+            if len(overlap) >= 2:
+                supported.append(cand)
+                continue
+
+            # 3. Conceptual stem matching with word-boundary isolation
+            for _, terms in STEM_MAP.items():
+                ctx_has_concept = any(
+                    bool(re.search(r"(?:^|[\s\W])" + re.escape(term) + r"(?:$|[\s\W])", ctx_lower))
+                    for term in terms
+                )
+                cand_has_concept = any(
+                    bool(re.search(r"(?:^|[\s\W])" + re.escape(term) + r"(?:$|[\s\W])", cand_lower))
+                    for term in terms
+                )
+                if ctx_has_concept and cand_has_concept:
+                    supported.append(cand)
+                    break
+
+        # Fallback to top-ranked candidate if none specifically matched
+        if not supported and candidates:
+            supported = [candidates[0]]
+
+        # Preserve uniqueness while preserving order
+        seen_chunks: set[str] = set()
+        deduped: list[RetrievalCandidate] = []
+        for cand in supported:
+            if cand.chunk_id not in seen_chunks:
+                seen_chunks.add(cand.chunk_id)
+                deduped.append(cand)
+
+        return deduped
 
     async def _record_citations(
         self, message_id: str, candidates: list[RetrievalCandidate]

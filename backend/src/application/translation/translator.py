@@ -1,14 +1,21 @@
 """Application service managing translation operations, glossary filters, and database registry synchronization."""
 
+import re
 from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.src.application.chat.grounding_guard import (
+    CANONICAL_FALLBACK_EN,
+    CANONICAL_FALLBACK_KN,
+)
 from backend.src.application.translation.heritage_glossary import HeritageGlossary
+from backend.src.application.translation.heritage_translator import HeritageTranslator
 from backend.src.application.translation.query_normalizer import QueryNormalizer
 from backend.src.core.logging import get_logger
 from backend.src.infrastructure.models.system import TranslationRegistry
 from backend.src.infrastructure.translation.argos_engine import ArgosTranslationEngine, get_argos_engine
+from backend.src.infrastructure.translation.nllb_engine import NllbTranslationEngine, get_nllb_engine
 
 logger = get_logger("application.translation.translator")
 
@@ -18,13 +25,18 @@ class TranslationService:
 
     def __init__(
         self,
+        nllb_engine: NllbTranslationEngine | None = None,
         argos_engine: ArgosTranslationEngine | None = None,
         glossary: HeritageGlossary | None = None,
         normalizer: QueryNormalizer | None = None,
+        heritage_translator: HeritageTranslator | None = None,
     ) -> None:
+        self.nllb_engine = nllb_engine or get_nllb_engine()
         self.argos_engine = argos_engine or get_argos_engine()
         self.glossary = glossary or HeritageGlossary()
         self.normalizer = normalizer or QueryNormalizer(argos_engine=self.argos_engine, glossary=self.glossary)
+        self.heritage_translator = heritage_translator or HeritageTranslator()
+        self._trans_cache: dict[tuple[str, str, str], str] = {}
 
     def translate_text(
         self,
@@ -33,26 +45,45 @@ class TranslationService:
         target_language: str,
         preserve_heritage: bool = True,
     ) -> str:
-        """Translate text between languages with optional heritage entity preservation."""
-        if not text.strip() or source_language == target_language:
+        """Translate text between languages using offline neural machine translation and domain glossary."""
+        clean_text = text.strip()
+        if not clean_text or source_language == target_language:
             return text
 
-        # 1. If heritage preservation is requested, mask domain proper nouns
-        masks: dict[str, str] = {}
-        processed_input = text
-        if preserve_heritage:
-            processed_input, masks = self.glossary.mask_heritage_terms(text)
+        cache_key = (clean_text, source_language, target_language)
+        if cache_key in self._trans_cache:
+            return self._trans_cache[cache_key]
 
-        # 2. Attempt neural translation
-        translated = self.argos_engine.translate(processed_input, source_language, target_language)
+        # 1. Canonical fallback preservation
+        if clean_text == CANONICAL_FALLBACK_EN and target_language == "kn":
+            return CANONICAL_FALLBACK_KN
+        if clean_text == CANONICAL_FALLBACK_KN and target_language == "en":
+            return CANONICAL_FALLBACK_EN
 
+        # 2. Offline Neural Translation with NLLB-200 (CTranslate2 INT8)
+        if self.nllb_engine.is_available():
+            raw_translated = self.nllb_engine.translate(clean_text, source_language, target_language)
+            if target_language == "kn":
+                res = self.heritage_translator.post_process_kannada(raw_translated)
+            elif target_language == "en":
+                # Clean known NLLB transliteration quirks on Kannada heritage terms
+                en_fixed = re.sub(r"\bBeirut\b", "Belur", raw_translated, flags=re.IGNORECASE)
+                en_fixed = re.sub(r"\bChennaikeshava\b", "Chennakeshava", en_fixed, flags=re.IGNORECASE)
+                res = en_fixed
+            else:
+                res = raw_translated
+
+            if len(self._trans_cache) >= 1024:
+                self._trans_cache.pop(next(iter(self._trans_cache)))
+            self._trans_cache[cache_key] = res
+            return res
+
+        # 3. Argos Translate fallback
+        translated = self.argos_engine.translate(text, source_language, target_language)
         if translated is not None:
-            # Unmask preserved proper nouns
-            if preserve_heritage and masks:
-                translated = self.glossary.unmask_heritage_terms(translated, masks)
             return translated
 
-        # 3. Graceful fallback: if neural model is unavailable, return normalized/passthrough text
+        # 4. Graceful fallback: return normalized/passthrough text
         logger.info(
             "translation_model_unavailable_fallback",
             source_language=source_language,

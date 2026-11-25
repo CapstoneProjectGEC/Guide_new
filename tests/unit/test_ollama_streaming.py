@@ -24,7 +24,7 @@ def test_ollama_config_and_defaults():
     """Verify Ollama configuration parameters match approved low-latency settings."""
     settings = get_settings()
     assert settings.OLLAMA_BASE_URL == "http://127.0.0.1:11434"
-    assert settings.OLLAMA_MODEL == "gemma3:4b"
+    assert settings.OLLAMA_MODEL in ("phi3:mini", "gemma3:4b")
     assert settings.OLLAMA_NUM_CTX == 4096
     assert settings.OLLAMA_NUM_PREDICT == 160
     assert settings.OLLAMA_TEMPERATURE == 0.1

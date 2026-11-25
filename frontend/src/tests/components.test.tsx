@@ -73,6 +73,44 @@ describe("Frontend UI Components", () => {
     expect(onCitationClick).toHaveBeenCalledWith(mockCitation);
   });
 
+  it("MessageBubble renders properly localized Kannada labels in Kannada mode", () => {
+    const mockCitation: Citation = {
+      chunk_id: "chk-100",
+      document_id: "Temple_info.pdf",
+      page_number: 1,
+      section_heading: "History",
+      relevance_score: 0.98,
+      snippet: "King Vishnuvardhana built the temple in 1117 CE.",
+    };
+
+    const mockMsgKn: ChatMessage = {
+      id: "asst-kn-1",
+      session_id: "sess-kn-1",
+      role: "assistant",
+      content: "ಬೇಲೂರಿನ ಚೆನ್ನಕೇಶವ ದೇವಾಲಯವನ್ನು ಹೊಯ್ಸಳ ರಾಜ ವಿಷ್ಣುವರ್ಧನನು ಕ್ರಿ.ಶ. 1117ರಲ್ಲಿ ನಿರ್ಮಿಸಿದನು.",
+      detected_language: "kn",
+      input_mode: "text",
+      is_grounded: true,
+      created_at: new Date().toISOString(),
+      citations: [mockCitation],
+    };
+
+    render(
+      <MessageBubble
+        message={mockMsgKn}
+        language="kn"
+        onCitationClick={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("ಬೇಲೂರು ಪರಂಪರೆ ಮಾರ್ಗದರ್ಶಿ")).toBeInTheDocument();
+    expect(screen.getByText("ಪರಿಶೀಲಿತ")).toBeInTheDocument();
+    expect(screen.getByText("ಉಲ್ಲೇಖಿತ ಮೂಲಗಳು:")).toBeInTheDocument();
+    expect(screen.getByText("ಮೂಲ [1: p.1]")).toBeInTheDocument();
+    expect(screen.getByText("ಪ್ರತಿ ಮಾಡಿಕೊಳ್ಳಿ")).toBeInTheDocument();
+    expect(screen.getByText("ಬೇಲೂರಿನ ಚೆನ್ನಕೇಶವ ದೇವಾಲಯವನ್ನು ಹೊಯ್ಸಳ ರಾಜ ವಿಷ್ಣುವರ್ಧನನು ಕ್ರಿ.ಶ. 1117ರಲ್ಲಿ ನಿರ್ಮಿಸಿದನು.")).toBeInTheDocument();
+  });
+
   it("SuggestedQuestions renders cards and fires click callback", () => {
     const onSelect = vi.fn();
     render(<SuggestedQuestions language="en" onSelectQuestion={onSelect} />);

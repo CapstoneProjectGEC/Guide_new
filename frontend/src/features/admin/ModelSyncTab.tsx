@@ -253,8 +253,14 @@ export const ModelSyncTab: React.FC = () => {
                 </div>
               </div>
 
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                Active
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                  (syncStatus?.translation?.installed_packages_count ?? 0) > 0
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                }`}
+              >
+                {(syncStatus?.translation?.installed_packages_count ?? 0) > 0 ? "Active" : "Offline Fallback Active"}
               </span>
             </div>
 
@@ -265,16 +271,19 @@ export const ModelSyncTab: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="p-2.5 rounded-lg bg-heritage-sandstone/60 dark:bg-heritage-stone-dark/60 border border-heritage-brown/5 dark:border-heritage-gold/10">
                   <span className="font-semibold block">Kannada → English</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                    {syncStatus?.translation?.kn_en_available ? "Installed & Operational" : "Pending"}
+                  <span className={`text-[10px] ${syncStatus?.translation?.kn_en_available ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    {syncStatus?.translation?.kn_en_available ? "Installed & Operational" : "Glossary & Transliteration Fallback"}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-lg bg-heritage-sandstone/60 dark:bg-heritage-stone-dark/60 border border-heritage-brown/5 dark:border-heritage-gold/10">
                   <span className="font-semibold block">English → Kannada</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                    {syncStatus?.translation?.en_kn_available ? "Installed & Operational" : "Pending"}
+                  <span className={`text-[10px] ${syncStatus?.translation?.en_kn_available ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    {syncStatus?.translation?.en_kn_available ? "Installed & Operational" : "Bilingual Prompt Fallback"}
                   </span>
                 </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-heritage-gold/5 dark:bg-heritage-gold/10 border border-heritage-gold/15 text-[11px] text-heritage-umber dark:text-heritage-stone leading-relaxed">
+                <strong>Kannada Offline Architecture:</strong> Upstream Argos Translate does not publish official Kannada language packages. Kannada queries are safely handled completely offline via the built-in Heritage Entity Glossary, Term Normalizer, and bilingual LLM synthesis.
               </div>
               <p className="text-[11px] text-heritage-umber dark:text-heritage-stone">
                 Total Installed Packages: {syncStatus?.translation?.installed_packages_count ?? 0}

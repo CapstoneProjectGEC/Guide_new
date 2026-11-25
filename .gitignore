@@ -22,6 +22,8 @@ data/chroma/
 data/models/
 *.sqlite3
 *.onnx
+logs/
+*.log
 
 # Frontend & Build Output
 node_modules/

@@ -10,9 +10,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@types/three": "^0.187.0",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

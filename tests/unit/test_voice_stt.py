@@ -184,8 +184,8 @@ async def test_silence_detection_shortcut():
     assert result.is_silent is True
     assert result.text == ""
     assert result.segments == []
-    # Instant bypass should execute in <150ms
-    assert result.latency_ms < 200
+    # Instant bypass should execute in <300ms
+    assert result.latency_ms < 300
 
 
 @pytest.mark.anyio

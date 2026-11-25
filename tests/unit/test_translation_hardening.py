@@ -246,3 +246,95 @@ async def test_kannada_sse_streaming_preserves_contract():
         assert "event: citations" in body
         assert "event: token" in body
         assert "event: done" in body
+
+
+@pytest.mark.anyio
+async def test_paired_english_kannada_polished_pillars_retrieval():
+    """Verify that equivalent English and Kannada questions retrieve identical key knowledge."""
+    async with get_session_factory()() as session:
+        manager = ConversationManager(session=session)
+
+        # 1. English query
+        req_en = SendMessageRequest(
+            content="Who built the Chennakeshava Temple at Belur and when?",
+            preferred_language="en",
+        )
+        resp_en = await manager.process_message(req_en)
+        assert resp_en.is_grounded is True
+        assert len(resp_en.citations) > 0
+        assert resp_en.citations[0].relevance_score >= 0.35
+        en_chunk_ids = [c.chunk_id for c in resp_en.citations]
+
+        # 2. Equivalent Kannada query
+        req_kn = SendMessageRequest(
+            content="ಬೇಲೂರಿನ ಚೆನ್ನಕೇಶವ ದೇವಾಲಯವನ್ನು ಯಾರು ಮತ್ತು ಯಾವಾಗ ಕಟ್ಟಿಸಿದರು?",
+            preferred_language="kn",
+        )
+        resp_kn = await manager.process_message(req_kn)
+        assert resp_kn.is_grounded is True
+        assert len(resp_kn.citations) > 0
+        assert resp_kn.citations[0].relevance_score >= 0.35
+        kn_chunk_ids = [c.chunk_id for c in resp_kn.citations]
+
+        # Both queries must retrieve the exact same primary knowledge chunk
+        assert en_chunk_ids[0] == kn_chunk_ids[0]
+        assert "vishnuvardhana" in resp_en.content.lower() or "vishnuvardhana" in resp_en.citations[0].snippet.lower()
+
+
+@pytest.mark.anyio
+async def test_kannada_pillar_phrasing_variations():
+    """Verify that alternative Kannada phrasings of the pillar question retrieve grounded knowledge."""
+    phrasings = [
+        "ನವರಂಗದ ದುಂಡನೆಯ ಹೊಳಪಿನ ಕಂಬಗಳನ್ನು ಹೇಗೆ ತಯಾರಿಸಿದರು?",
+        "ಕಂಬಗಳಿಗೆ ಹೊಳಪು ಮತ್ತು ದುಂಡಗಿನ ಆಕಾರವನ್ನು ಹೇಗೆ ನೀಡಲಾಯಿತು?",
+        "ಬೇಲೂರು ಮುಖ್ಯ ಮಂಟಪದ ಹೊಳಪುಳ್ಳ ಕಂಬಗಳನ್ನು ಹೇಗೆ ಮಾಡಿದರು?",
+    ]
+    normalizer = QueryNormalizer()
+    for query in phrasings:
+        norm = normalizer.normalize_for_retrieval(query, source_lang="kn")
+        retrieval_lower = norm.retrieval_query.lower()
+        # Ensure key architectural keywords are preserved
+        assert "pillar" in retrieval_lower or "column" in retrieval_lower
+        assert "lathe" in retrieval_lower or "turn" in retrieval_lower or "polish" in retrieval_lower
+
+
+@pytest.mark.anyio
+async def test_paired_stone_material_and_sculpture_count():
+    """Verify paired Kannada knowledge questions retrieve accurate grounding."""
+    async with get_session_factory()() as session:
+        manager = ConversationManager(session=session)
+
+        # Stone material query
+        req_stone = SendMessageRequest(
+            content="ದೇವಾಲಯ ನಿರ್ಮಾಣಕ್ಕೆ ಯಾವ ಕಲ್ಲನ್ನು ಬಳಸಲಾಗಿದೆ?",
+            preferred_language="kn",
+        )
+        resp_stone = await manager.process_message(req_stone)
+        assert resp_stone.is_grounded is True
+        assert len(resp_stone.citations) > 0
+
+        # Madanika count query
+        req_count = SendMessageRequest(
+            content="ದೇವಾಲಯದಲ್ಲಿ ಒಟ್ಟು ಎಷ್ಟು ಮದನಿಕಾ ಶಿಲ್ಪಗಳಿವೆ?",
+            preferred_language="kn",
+        )
+        resp_count = await manager.process_message(req_count)
+        assert resp_count.is_grounded is True
+        assert len(resp_count.citations) > 0
+
+
+@pytest.mark.anyio
+async def test_unsupported_out_of_domain_kannada_truthful_fallback():
+    """Verify unsupported out-of-domain Kannada questions consistently yield canonical fallback."""
+    unsupported_queries = [
+        "ತಾಜ್ ಮಹಲ್ ಎಲ್ಲಿದೆ?",
+        "ಬೆಂಗಳೂರಿನ ಹವಾಮಾನ ಹೇಗಿದೆ?",
+    ]
+    async with get_session_factory()() as session:
+        manager = ConversationManager(session=session)
+        for q in unsupported_queries:
+            req = SendMessageRequest(content=q, preferred_language="kn")
+            resp = await manager.process_message(req)
+            assert resp.is_grounded is False
+            assert len(resp.citations) == 0
+            assert resp.content == CANONICAL_FALLBACK_KN

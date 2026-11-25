@@ -32,6 +32,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         version=settings.APP_VERSION,
         profile=settings.APP_PROFILE,
     )
+
+    # Pre-warm all inference models to eliminate cold-start latency for tourists
+    try:
+        from backend.src.infrastructure.vector.chroma_store import get_embedding_service
+        from backend.src.application.rag.reranker import get_cross_encoder_reranker
+        from backend.src.infrastructure.translation.nllb_engine import get_nllb_engine
+        from backend.src.infrastructure.llm.ollama_client import get_ollama_client
+
+        # 1. Warm MiniLM embedding service
+        get_embedding_service().embed_query("Belur Chennakeshava Temple warmup")
+        # 2. Warm CrossEncoder reranker
+        get_cross_encoder_reranker().rerank("Belur temple warmup", [{"content": "Belur Chennakeshava Temple"}])
+        # 3. Warm NLLB-200 CTranslate2 engine
+        get_nllb_engine().warmup()
+        # 4. Warm Ollama with a keep-alive ping
+        await get_ollama_client().generate(prompt="Hello", system_prompt="Warmup", num_predict=2)
+        logger.info("all_inference_models_prewarmed_successfully")
+    except Exception as exc:
+        logger.warning("model_prewarm_exception", error=str(exc))
+
     yield
     # Clean up pooled HTTP connections and voice resources
     from backend.src.infrastructure.llm.ollama_client import get_ollama_client

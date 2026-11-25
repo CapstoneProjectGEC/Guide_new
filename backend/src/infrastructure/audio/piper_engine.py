@@ -1,6 +1,7 @@
 """Piper TTS infrastructure engine adapter managing local offline ONNX models."""
 
 import io
+import json
 import os
 from pathlib import Path
 import threading
@@ -71,9 +72,15 @@ class PiperEngine:
         return onnx_path, json_path
 
     def is_voice_available(self, voice_id: str) -> bool:
-        """Check whether both .onnx model and .onnx.json config files exist locally."""
+        """Check whether both .onnx model and .onnx.json config files exist locally and are valid."""
         onnx_path, json_path = self.get_voice_file_paths(voice_id)
-        return onnx_path.exists() and json_path.exists() and onnx_path.stat().st_size > 1000
+        if not (onnx_path.exists() and json_path.exists() and onnx_path.stat().st_size > 1000):
+            return False
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            return isinstance(data, dict) and bool(data)
+        except Exception:
+            return False
 
     def is_language_available(self, language: str) -> bool:
         """Check if a voice model for the requested language is provisioned on disk."""

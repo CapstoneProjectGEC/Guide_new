@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import time
+from typing import Any
 from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.src.application.pipeline.chunker import SemanticChunker
@@ -63,10 +64,61 @@ class KnowledgeGenerationManager:
         self,
         admin_id: str | None = None,
         document_ids: list[str] | None = None,
-        auto_promote: bool = True,
+        auto_promote: bool = False,
     ) -> KnowledgeGenerationResponse:
-        """Execute full end-to-end pipeline: BUILD ➔ PARSE ➔ CHUNK ➔ EMBED ➔ INDEX ➔ VALIDATE ➔ PROMOTE."""
-        # 1. Determine next monotonic generation number
+        """Execute full end-to-end pipeline: PREFLIGHT ➔ BUILD ➔ PARSE ➔ CHUNK ➔ EMBED ➔ INDEX ➔ VALIDATE ➔ PROMOTE.
+
+        Preflight checks block generation creation if documents are missing, unreadable, or lack extractable text.
+        Builds occur in isolated staging namespaces without mutating the active generation.
+        """
+        # -------------------------------------------------------------
+        # PREFLIGHT CHECKS: Validate sources before creating any DB row
+        # -------------------------------------------------------------
+        doc_query = select(Document)
+        if document_ids:
+            doc_query = doc_query.where(Document.id.in_(document_ids))
+        docs_result = await self.session.execute(doc_query)
+        target_docs = list(docs_result.scalars().all())
+
+        if not target_docs:
+            raise ValidationError("Preflight check failed: No valid documents found in database to build knowledge base.")
+
+        preflight_sections_by_doc: dict[str, list] = {}
+        total_extracted_chars = 0
+
+        for doc in target_docs:
+            try:
+                pdf_bytes = self.storage.read_file(doc.storage_path)
+            except Exception as e:
+                logger.error("preflight_missing_file", doc_id=doc.id, path=doc.storage_path, error=str(e))
+                raise ValidationError(
+                    f"Preflight check failed: Physical document file is missing or unreadable at '{doc.storage_path}' for document '{doc.filename}' ({e})."
+                ) from e
+
+            if not pdf_bytes or len(pdf_bytes) < 50:
+                raise ValidationError(
+                    f"Preflight check failed: Document '{doc.filename}' is empty or contains insufficient data."
+                )
+
+            try:
+                sections = self.extractor.extract_from_bytes(pdf_bytes, filename=doc.filename)
+                preflight_sections_by_doc[doc.id] = sections
+                for sec in sections:
+                    total_extracted_chars += len(sec.content.strip())
+            except Exception as e:
+                logger.error("preflight_extraction_failed", doc_id=doc.id, error=str(e))
+                raise ValidationError(
+                    f"Preflight check failed: Text extraction failed for document '{doc.filename}': {e}"
+                ) from e
+
+        if total_extracted_chars < 50:
+            raise ValidationError(
+                "Preflight check failed: Source documents contain zero meaningful extractable text."
+            )
+
+        # -------------------------------------------------------------
+        # 1. Determine next monotonic generation number and create staging record
+        # -------------------------------------------------------------
         max_num_stmt = select(func.max(KnowledgeGeneration.generation_number))
         result = await self.session.execute(max_num_stmt)
         max_num = result.scalar_one_or_none() or 0
@@ -119,21 +171,8 @@ class KnowledgeGenerationManager:
             # ---------------------------------------------------------
             await self._update_step(generation, step_records, PipelineStep.PARSE, StepExecutionStatus.IN_PROGRESS, 10.0)
 
-            # Retrieve target documents
-            doc_query = select(Document)
-            if document_ids:
-                doc_query = doc_query.where(Document.id.in_(document_ids))
-            docs_result = await self.session.execute(doc_query)
-            target_docs = docs_result.scalars().all()
-
-            if not target_docs:
-                raise ValidationError("No valid documents found to build knowledge base.")
-
-            parsed_sections_by_doc: dict[str, list] = {}
-            for doc in target_docs:
-                pdf_bytes = self.storage.read_file(doc.storage_path)
-                sections = self.extractor.extract_from_bytes(pdf_bytes, filename=doc.filename)
-                parsed_sections_by_doc[doc.id] = sections
+            # Use preflight parsed sections directly
+            parsed_sections_by_doc = preflight_sections_by_doc
 
             await self._update_step(generation, step_records, PipelineStep.PARSE, StepExecutionStatus.COMPLETED, 100.0)
 
@@ -199,6 +238,7 @@ class KnowledgeGenerationManager:
             # ---------------------------------------------------------
             await self._update_step(generation, step_records, PipelineStep.INDEX, StepExecutionStatus.IN_PROGRESS, 10.0)
 
+            self.vector_store.delete_collection(collection_name)
             self.vector_store.index_chunks(
                 collection_name=collection_name,
                 chunks=all_domain_chunks,
@@ -216,10 +256,12 @@ class KnowledgeGenerationManager:
                 raise ValidationError(
                     f"Vector count mismatch: MySQL recorded {len(all_domain_chunks)} chunks, Chroma has {chroma_count}."
                 )
+            if chroma_count == 0:
+                raise ValidationError("Validation failed: Staging generation has zero chunks in ChromaDB.")
 
-            # Perform probe retrieval
+            # Perform probe retrieval smoke test
             test_vec = self.embedding_service.embed_query("Belur Chennakeshava Temple")
-            probe_results = self.vector_store.query_dense(collection_name, test_vec, top_k=2)
+            probe_results = self.vector_store.query_dense(collection_name, test_vec, top_k=min(2, chroma_count))
             if not probe_results:
                 raise ValidationError("Validation probe query against ChromaDB returned empty results.")
 
@@ -234,6 +276,12 @@ class KnowledgeGenerationManager:
                 await self._update_step(generation, step_records, PipelineStep.PROMOTE, StepExecutionStatus.COMPLETED, 100.0)
             else:
                 generation.status = "VALIDATE"
+                logger.info(
+                    "generation_staged_in_validate_status",
+                    generation_id=generation.id,
+                    generation_number=generation.generation_number,
+                    reason="Explicit curator approval required before replacing active generation",
+                )
 
             await self.session.commit()
             await self.session.refresh(generation)
@@ -264,7 +312,7 @@ class KnowledgeGenerationManager:
             raise
 
     async def promote_generation(self, generation_id: str) -> KnowledgeGenerationResponse:
-        """Promote an existing validated or archived generation to ACTIVE status."""
+        """Promote an existing validated or archived generation to ACTIVE status with full integrity checks."""
         stmt = select(KnowledgeGeneration).where(KnowledgeGeneration.id == generation_id)
         result = await self.session.execute(stmt)
         gen = result.scalar_one_or_none()
@@ -278,6 +326,28 @@ class KnowledgeGenerationManager:
 
         if gen.status == "FAILED":
             raise ConflictError("Cannot promote a FAILED generation. Rebuild required.")
+
+        if gen.chunk_count <= 0:
+            raise ConflictError(f"Cannot promote generation {gen.generation_number}: chunk count is {gen.chunk_count}.")
+
+        # Verify collection exists in Chroma and is non-empty if collection is provisioned
+        try:
+            coll = self.vector_store.get_collection(gen.chroma_collection_name)
+            if coll is not None:
+                chroma_count = self.vector_store.count(gen.chroma_collection_name)
+                if chroma_count != gen.chunk_count:
+                    raise ConflictError(
+                        f"Cannot promote generation {gen.generation_number}: collection count mismatch (Chroma: {chroma_count}, DB: {gen.chunk_count})."
+                    )
+                if chroma_count > 0:
+                    test_vec = self.embedding_service.embed_query("Belur Chennakeshava Temple")
+                    probe_res = self.vector_store.query_dense(gen.chroma_collection_name, test_vec, top_k=min(2, chroma_count))
+                    if not probe_res:
+                        raise ConflictError(f"Cannot promote generation {gen.generation_number}: retrieval smoke test failed.")
+        except ConflictError:
+            raise
+        except Exception:
+            pass
 
         await self._promote_internal(gen)
         await self.session.commit()
@@ -423,3 +493,61 @@ class KnowledgeGenerationManager:
                 for s in steps
             ],
         )
+
+    async def cleanup_failed_generations(self) -> dict[str, Any]:
+        """Safely clean up orphaned FAILED generations that have 0 chunks and no dependencies.
+
+        Guarantees:
+        - Strictly protected: Never deletes ACTIVE, VALIDATE, or ARCHIVED generations.
+        - Verifies that target generations have status == 'FAILED' and chunk_count == 0.
+        - Confirms zero DocumentChunks exist before deletion.
+        - Cleans up associated Chroma collections if any exist.
+        - Deletes associated GenerationStatus and KnowledgeGeneration records.
+        """
+        # Find all FAILED generations with 0 chunks
+        stmt = (
+            select(KnowledgeGeneration)
+            .where(
+                KnowledgeGeneration.status == "FAILED",
+                KnowledgeGeneration.chunk_count == 0,
+            )
+            .order_by(KnowledgeGeneration.generation_number.asc())
+        )
+        result = await self.session.execute(stmt)
+        failed_gens = list(result.scalars().all())
+
+        if not failed_gens:
+            return {"deleted_count": 0, "cleaned_generations": []}
+
+        cleaned: list[dict[str, Any]] = []
+        for gen in failed_gens:
+            # Defensive check: ensure no chunks belong to this generation
+            chunk_stmt = select(func.count(DocumentChunk.id)).where(DocumentChunk.generation_id == gen.id)
+            chunk_res = await self.session.execute(chunk_stmt)
+            if (chunk_res.scalar_one() or 0) > 0:
+                logger.warning("skipping_failed_gen_with_chunks", gen_id=gen.id, number=gen.generation_number)
+                continue
+
+            # Remove Chroma collection if one was created
+            col_name = gen.chroma_collection_name
+            try:
+                if self.vector_store.get_collection(col_name) is not None:
+                    self.vector_store.delete_collection(col_name)
+                    logger.info("cleaned_failed_chroma_collection", collection=col_name)
+            except Exception as e:
+                logger.warning("failed_chroma_collection_cleanup_error", collection=col_name, error=str(e))
+
+            cleaned.append({
+                "id": gen.id,
+                "generation_number": gen.generation_number,
+                "status": gen.status,
+                "collection_name": col_name,
+            })
+            await self.session.delete(gen)
+
+        await self.session.commit()
+        logger.info("cleaned_failed_generations", count=len(cleaned))
+        return {
+            "deleted_count": len(cleaned),
+            "cleaned_generations": cleaned,
+        }

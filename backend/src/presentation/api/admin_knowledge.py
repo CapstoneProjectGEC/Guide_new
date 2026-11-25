@@ -1,5 +1,6 @@
 """Administrative REST API endpoints for knowledge base generation lifecycle."""
 
+from typing import Any
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.src.application.pipeline.generation_manager import KnowledgeGenerationManager
@@ -32,7 +33,7 @@ async def build_generation(
     response = await manager.build_generation(
         admin_id=current_admin.id,
         document_ids=request.document_ids,
-        auto_promote=True,
+        auto_promote=request.auto_promote,
     )
 
     # Log action to audit trail
@@ -47,6 +48,28 @@ async def build_generation(
     await session.commit()
 
     return response
+
+
+@router.delete("/failed", status_code=status.HTTP_200_OK)
+async def cleanup_failed_generations(
+    current_admin: Admin = Depends(require_role(AdminRole.SITE_CURATOR)),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """Clean up orphaned FAILED generations that have 0 chunks (SITE_CURATOR+)."""
+    manager = KnowledgeGenerationManager(session=session)
+    result = await manager.cleanup_failed_generations()
+
+    audit = AuditLog(
+        admin_id=current_admin.id,
+        action="GEN_CLEANUP_FAILED",
+        resource_type="knowledge_generation",
+        resource_id="batch",
+        payload={"deleted_count": result["deleted_count"]},
+    )
+    session.add(audit)
+    await session.commit()
+
+    return result
 
 
 @router.get("", response_model=KnowledgeGenerationListResponse)

@@ -55,17 +55,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               🛕
             </span>
             <span className="font-bold font-display text-heritage-brown dark:text-heritage-marble">
-              Belur Heritage Guide
+              {t.guideHeader}
             </span>
             {message.is_grounded ? (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <ShieldCheck className="w-3 h-3" />
-                Verified
+                {t.verified}
               </span>
             ) : (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400">
                 <AlertCircle className="w-3 h-3" />
-                Fallback
+                {t.fallback}
               </span>
             )}
           </div>
@@ -90,7 +90,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {message.citations && message.citations.length > 0 && (
           <div className="mt-3 pt-2.5 border-t border-heritage-brown/10 dark:border-heritage-gold/15">
             <div className="text-[11px] font-semibold text-heritage-umber dark:text-heritage-stone mb-1.5">
-              Attributed Sources:
+              {t.attributedSources}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {message.citations.map((c, i) => (
@@ -98,6 +98,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   key={`${c.chunk_id}-${i}`}
                   citation={c}
                   index={i}
+                  language={language}
                   onClick={onCitationClick}
                 />
               ))}
@@ -128,7 +129,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {copied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Copied</span>
+                    <span>{t.copied}</span>
                   </>
                 ) : (
                   <>

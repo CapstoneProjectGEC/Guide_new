@@ -15,7 +15,11 @@ from backend.src.domain.document import (
 )
 from backend.src.infrastructure.database.session import get_db_session
 from backend.src.infrastructure.models.auth import Admin
-from backend.src.infrastructure.models.knowledge import Document
+from backend.src.infrastructure.models.knowledge import (
+    Document,
+    DocumentChunk,
+    KnowledgeGeneration,
+)
 from backend.src.infrastructure.models.system import AuditLog
 from backend.src.infrastructure.storage.local_storage import get_storage_service
 from backend.src.presentation.dependencies.auth import require_role
@@ -182,7 +186,13 @@ async def delete_document(
     current_admin: Admin = Depends(require_role(AdminRole.SITE_CURATOR)),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, str]:
-    """Delete document from MySQL and physical filesystem."""
+    """Delete document from MySQL and physical filesystem.
+
+    Enforces active-generation dependency protection: if chunks belonging to this document
+    are referenced by an ACTIVE knowledge generation, deletion is rejected with 409 Conflict.
+    Preserves shared physical files if another document record references the same storage path.
+    Deletion is idempotent if the physical file is already missing on disk.
+    """
     storage = get_storage_service()
     stmt = select(Document).where(Document.id == document_id)
     result = await session.execute(stmt)
@@ -191,13 +201,43 @@ async def delete_document(
     if not doc:
         raise NotFoundError(f"Document with ID '{document_id}' not found.")
 
-    # Remove file from disk
-    storage.delete_file(doc.storage_path)
+    # 1. Dependency check: ensure document is not referenced by an ACTIVE generation
+    active_gen_stmt = (
+        select(KnowledgeGeneration.generation_number)
+        .join(DocumentChunk, DocumentChunk.generation_id == KnowledgeGeneration.id)
+        .where(
+            DocumentChunk.document_id == document_id,
+            KnowledgeGeneration.status == "ACTIVE",
+        )
+        .distinct()
+    )
+    active_gen_res = await session.execute(active_gen_stmt)
+    active_gens = active_gen_res.scalars().all()
+    if active_gens:
+        gen_list = ", ".join(f"#{g}" for g in active_gens)
+        raise ConflictError(
+            f"Cannot delete document '{doc.filename}' because it is actively used in generation(s): {gen_list}. "
+            "Promote a different generation or archive the active generation before deleting source documents."
+        )
 
-    # Delete record from MySQL
+    # 2. Check if another document references the exact same physical storage path
+    other_doc_stmt = (
+        select(func.count(Document.id))
+        .where(Document.storage_path == doc.storage_path, Document.id != document_id)
+    )
+    other_doc_res = await session.execute(other_doc_stmt)
+    shares_storage = (other_doc_res.scalar_one() or 0) > 0
+
+    # 3. Safely unlink from filesystem if not shared (idempotent if missing, raises StorageError on permission/IO)
+    if not shares_storage:
+        storage.delete_file(doc.storage_path)
+    else:
+        logger.info("preserving_shared_storage_file", storage_path=doc.storage_path, doc_id=document_id)
+
+    # 4. Delete record from MySQL (cascades to inactive chunks if any)
     await session.delete(doc)
 
-    # Record deletion audit log
+    # 5. Record deletion audit log
     audit = AuditLog(
         admin_id=current_admin.id,
         action="DOC_DELETE",

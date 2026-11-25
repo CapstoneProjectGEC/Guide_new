@@ -84,6 +84,13 @@ class ServiceUnavailableError(AppException):
         super().__init__(message=message, code="SERVICE_UNAVAILABLE", status_code=status.HTTP_503_SERVICE_UNAVAILABLE, details=details)
 
 
+class StorageError(AppException):
+    """Filesystem or storage I/O operation failure."""
+
+    def __init__(self, message: str = "Storage operation failed", details: dict[str, Any] | None = None) -> None:
+        super().__init__(message=message, code="STORAGE_ERROR", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, details=details)
+
+
 class AudioValidationError(AppException):
     """Audio payload or format validation failure."""
 
