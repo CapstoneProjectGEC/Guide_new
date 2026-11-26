@@ -13,6 +13,21 @@ logger = get_logger("application.translation.query_normalizer")
 
 # Common Kannada lexical terms translated to English domain equivalents for RAG retrieval
 COMMON_KANNADA_TERMS: list[tuple[re.Pattern, str]] = [
+    # Precinct Shrines & UNESCO Attractions
+    (re.compile(r"(?:ಸೌಮ್ಯನಾಯಕಿ|ಸೋಮನಾಯಕಿ|ಸೋಮ್ಯನಾಯಕಿ)(?:\s*(?:ದೇವಾಲಯ|ಗುಡಿ|ಸನ್ನಿಧಿ|ಅಮ್ಮನವರ))?(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು|ಯ)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Somanayaki Saumyanayaki Soumyanayaki temple vimana tower"),
+    (re.compile(r"(?:ವೀರನಾರಾಯಣ|ವೀರ\s*ನಾರಾಯಣ)(?:\s*(?:ದೇವಾಲಯ|ಗುಡಿ|ಸನ್ನಿಧಿ))?(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು|ಯ)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Vira Narayana Temple Vira-Narayana compact Hoysala shrine"),
+    (re.compile(r"(?:ಆಂಡಾಳ್|ರಂಗನಾಯಕಿ)(?:\s*(?:ದೇವಾಲಯ|ಗುಡಿ|ಸನ್ನಿಧಿ))?(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು|ಯ)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Andal Temple Ranganayaki female saint shrine"),
+    (re.compile(r"(?:ಉಯ್ಯಾಲೆ|ವ್ಯಾಳೆ)\s*ಮಂಟಪ(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Swinging mantapas swing pavilion Vyaule Mandapa"),
+    (re.compile(r"(?:ದೀಪಸ್ತಂಭ|ದೀಪ\s*ಸ್ತಂಭ|ಗುರುತ್ವಾಕರ್ಷಣಾ?\s*ಸ್ತಂಭ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Gravity Pillar 42 feet stone pole courtyard weight and balance"),
+    (re.compile(r"(?:ವಾಸುದೇವ\s*ಸರೋವರ|ಕಲ್ಯಾಣಿ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Vasudeva-sarovara pond Vasudeva stepped water tank"),
+    (re.compile(r"(?:ಆನೆ\s*ಬಾಗಿಲು|ಆನೆದ್ವಾರ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Elephant's Gate Elephant Gate royal portrait slab Vishnuvardhana Santale"),
+    (re.compile(r"(?:ರಾಯ\s*ಗೋಪುರ|ರಾಜಗೋಪುರ|ಮಹಾದ್ವಾರ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "main gateway gopura gopuram Raya Gopura seven-story"),
+    (re.compile(r"(?:ಧಾನ್ಯ\s*ಸಂಗ್ರಹಾಗಾರ|ಕಣಜ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Stone granary King Ballala II grain store"),
+    (re.compile(r"(?:ಕಲ್ಯಾಣ\s*ಮಂಟಪ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Kalyana Mandapa ceremonial wedding pavilion"),
+    (re.compile(r"(?:ಪ್ರಾಕಾರದ?\s*(?:ಕೋಟೆ\s*)?ಗೋಡೆ|ಸುತ್ತುಗೋಡೆ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "walled courtyard walled enclosure perimeter boundary wall"),
+    (re.compile(r"(?:ಕಕ್ಷಾಸನ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Kakshasana perimeter stone bench seating lattice screens"),
+    (re.compile(r"(?:ಅಂತರಾಳ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Antarala vestibule passage Sala royal emblem"),
+    (re.compile(r"(?:ದ್ವಾರ\s*ಮಂಟಪ|ದ್ವಾರಮಂಟಪ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Dvara Mandapa projecting entrance porches perforated jali screens"),
     # Main hall / navaranga / mandapa (with locative and nominal inflections)
     (re.compile(r"(?:ಮುಖ್ಯ\s*ಸಭಾಂಗಣ|ಮಧ್ಯ\s*ಸಭಾಂಗಣ|ಸಭಾಂಗಣ|ನವರಂಗ|ಮಧ್ಯರಂಗ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ವನ್ನು|ದ|ಕ್ಕೆ|ಗಳಿಂದ|ಗಳು|ಗಳನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "main hall navaranga central hall"),
     (re.compile(r"(?:ಮಂಟಪ|ಮುಖಮಂಟಪ|ಸಭಾಮಂಟಪ|ರಂಗಮಂಟಪ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ವನ್ನು|ದ|ಕ್ಕೆ|ಗಳಿಂದ|ಗಳು|ಗಳನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "mandapa hall pavilion"),
@@ -51,6 +66,7 @@ COMMON_KANNADA_TERMS: list[tuple[re.Pattern, str]] = [
     # Gateway / Entrance
     (re.compile(r"(?:ಪ್ರವೇಶದ್ವಾರ|ದ್ವಾರ|ಬಾಗಿಲು|ಗೋಪುರ|ರಾಜಗೋಪುರ)(?:ದಲ್ಲಿ|ವನ್ನು|ದ|ಕ್ಕೆ)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "entrance gateway gopuram doorway"),
     # Inquiries
+    (re.compile(r"(?:ವಿವರವಾಗಿ|ವಿವರವಾದ|ವಿವರ|ಮಾಹಿತಿ)(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "in detail details information"),
     (re.compile(r"(?:ಬಗ್ಗೆ|ಕುರಿತು)(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "about details"),
     (re.compile(r"(?:ತಿಳಿಸಿ|ಹೇಳಿ|ವಿವರಿಸಿ)(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "explain describe information"),
     # Year / Century
@@ -65,6 +81,13 @@ KANNADA_STOPWORDS: set[str] = {
     "ಈ", "ಆ", "ಮತ್ತು", "ಹಾಗೂ", "ಅಥವಾ", "ಇದೆ", "ಇವೆ", "ಇರುವ", "ಆದ",
     "ಆಗಿ", "ಎಂದು", "ಬಗ್ಗೆ", "ಕುರಿತು", "ಒಂದು", "ರಲ್ಲಿ", "ನಲ್ಲಿ", "ದಲ್ಲಿ", "ಯಲ್ಲಿ", "ಅಲ್ಲಿ", "ಇಲ್ಲಿ",
     "ಅದನ್ನು", "ಇದನ್ನು", "ಅದರ", "ಇದರ", "ಅವರು", "ಇವರು", "ಮಾತ್ರ", "ಕೂಡ", "ಸಹ",
+}
+
+RETRIEVAL_NOISE_WORDS: set[str] = {
+    "about", "details", "detail", "explain", "describe", "information",
+    "give", "tell", "me", "please", "more", "a", "an", "the", "in", "of",
+    "and", "to", "for", "with", "is", "are", "was", "were", "this", "that",
+    "what", "know", "how", "do", "you", "sanctuary", "feet",
 }
 
 
@@ -163,6 +186,12 @@ class QueryNormalizer:
                     words_in_trans = set(re.findall(r"\w+", clean_trans.lower()))
                     extra_terms: list[str] = []
 
+                    # Always ensure authoritative preserved heritage terms are included in retrieval query
+                    for term in preserved_terms:
+                        for part in term.split():
+                            if len(part) > 3 and part.lower() not in words_in_trans and part not in extra_terms:
+                                extra_terms.append(part)
+
                     # Only add intent expansions if the query translation is very short (< 4 words)
                     if len(clean_trans.split()) < 4:
                         expansions = self.glossary.get_intent_expansion(clean_query)
@@ -182,7 +211,24 @@ class QueryNormalizer:
                                     if term.lower() not in words_in_trans and term not in extra_terms:
                                         extra_terms.append(term)
 
-                    final_query = f"{clean_trans} {' '.join(extra_terms)}".strip() if extra_terms else clean_trans.strip()
+                    if preserved_terms:
+                        # Prioritize canonical heritage terms first
+                        entity_tokens: list[str] = []
+                        for term in preserved_terms:
+                            for part in term.split():
+                                if part.lower() not in [t.lower() for t in entity_tokens]:
+                                    entity_tokens.append(part)
+
+                        # Extract meaningful intent/detail words from translation avoiding noise
+                        extra_tokens: list[str] = []
+                        for w in re.findall(r"\w+", clean_trans):
+                            if w.lower() not in RETRIEVAL_NOISE_WORDS and w.lower() not in [t.lower() for t in entity_tokens]:
+                                if w.lower() not in [t.lower() for t in extra_tokens]:
+                                    extra_tokens.append(w)
+
+                        final_query = f"{' '.join(entity_tokens)} {' '.join(extra_tokens)}".strip()
+                    else:
+                        final_query = f"{clean_trans} {' '.join(extra_terms)}".strip() if extra_terms else clean_trans.strip()
                     logger.info(
                         "query_normalized_nllb_neural",
                         original=clean_query,
@@ -258,13 +304,18 @@ class QueryNormalizer:
                     retrieval_tokens.append(clean_latin)
             else:
                 clean_eng = re.sub(r"[^\w\-]", "", w).strip()
-                if clean_eng and clean_eng.lower() not in [t.lower() for t in retrieval_tokens]:
-                    retrieval_tokens.append(clean_eng)
+                if clean_eng:
+                    if preserved_terms and clean_eng.lower() in RETRIEVAL_NOISE_WORDS:
+                        continue
+                    if clean_eng.lower() not in [t.lower() for t in retrieval_tokens]:
+                        retrieval_tokens.append(clean_eng)
 
         # Add intent expansions (e.g. 'who built commissioned constructed', 'history historical background')
         if intents:
             for it in intents:
                 for token in it.split():
+                    if preserved_terms and token.lower() in RETRIEVAL_NOISE_WORDS:
+                        continue
                     if token.lower() not in [t.lower() for t in retrieval_tokens]:
                         retrieval_tokens.append(token)
 

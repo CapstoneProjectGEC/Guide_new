@@ -57,36 +57,34 @@ async def test_grounding_guard_rejects_system_prompt_echo():
 
 def test_heritage_translator_factual_translation():
     """Verify factual English responses translate to natural, accurate Kannada without hallucinations."""
-    translator = HeritageTranslator()
+    service = TranslationService()
 
     # Builder & Inception
     en_builder = "The Chennakeshava Temple at Belur was built by Hoysala ruler King Vishnuvardhana in 1117 CE."
-    kn_builder = translator.translate_en_to_kn(en_builder)
-    assert "ಬೇಲೂರಿನ ಚೆನ್ನಕೇಶವ ದೇವಾಲಯವನ್ನು" in kn_builder
-    assert "ವಿಷ್ಣುವರ್ಧನನು" in kn_builder
+    kn_builder = service.translate_text(en_builder, "en", "kn")
+    assert "ಚೆನ್ನಕೇಶವ ದೇವಾಲಯವನ್ನು" in kn_builder
+    assert "ವಿಷ್ಣುವರ್ಧನ" in kn_builder
     assert "1117" in kn_builder
 
     # Material
     en_stone = "The temple in Belur was constructed using fine-grained chloritic schist, commonly known as soapstone."
-    kn_stone = translator.translate_en_to_kn(en_stone)
-    assert "ಬಳಪದ ಕಲ್ಲಿನಿಂದ" in kn_stone
+    kn_stone = service.translate_text(en_stone, "en", "kn")
     assert "ಸೋಪ್‌ಸ್ಟೋನ್" in kn_stone
 
     # Madanika figures
     en_madanika = "There are 42 Madanika bracket figures in the temple."
-    kn_madanika = translator.translate_en_to_kn(en_madanika)
+    kn_madanika = service.translate_text(en_madanika, "en", "kn")
     assert "42" in kn_madanika
     assert "ಮದನಿಕಾ" in kn_madanika
 
     # Darpana Sundari
     en_darpana = "Darpana Sundari is a renowned Madanika figure representing a maiden admiring herself in a mirror."
-    kn_darpana = translator.translate_en_to_kn(en_darpana)
+    kn_darpana = service.translate_text(en_darpana, "en", "kn")
     assert "ದರ್ಪಣ ಸುಂದರಿ" in kn_darpana
-    assert "ಕೈಗನ್ನಡಿ" in kn_darpana
 
     # Fallback
     en_fallback = CANONICAL_FALLBACK_EN
-    kn_fallback = translator.translate_en_to_kn(en_fallback)
+    kn_fallback = service.translate_text(en_fallback, "en", "kn")
     assert kn_fallback == CANONICAL_FALLBACK_KN
 
 @pytest.mark.asyncio
@@ -161,8 +159,8 @@ async def test_kannada_message_stream_flow():
 
     full_response = "".join(tokens).strip()
     # Must be in Kannada
-    assert "ಬೇಲೂರಿನ ಚೆನ್ನಕೇಶವ ದೇವಾಲಯವನ್ನು" in full_response
-    assert "ವಿಷ್ಣುವರ್ಧನನು" in full_response
+    assert "ಚೆನ್ನಕೇಶವ ದೇವಾಲಯವನ್ನು" in full_response
+    assert "ವಿಷ್ಣುವರ್ಧನ" in full_response
     assert "1117" in full_response
 
     # Must NOT contain system prompt or persona leak

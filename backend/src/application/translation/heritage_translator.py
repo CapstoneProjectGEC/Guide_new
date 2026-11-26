@@ -77,7 +77,7 @@ ORTHOGRAPHIC_CORRECTIONS: list[tuple[re.Pattern, str]] = [
     (re.compile(rf"{L_KN}(?:ದರ್ಪಣಸುಂದರಿ|ದಾರ್ಪನಾ\s*ಸುಂದರಿ)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ದರ್ಪಣ ಸುಂದರಿ\1"),
     (re.compile(rf"{L_KN}(?:ತಲಾಕಾಡ್|ತಲಾಖಾದ್)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ತಲಕಾಡು\1"),
     (re.compile(rf"{L_KN}(?:ಕ್ಲೋರಿಟ್\s*ಸ್ಕ್ಯಾಸ್ಟ್|ಕ್ಲೋರಿಟಿಕ್\s*ಶಿಸ್ಟ್){R_KN}", re.IGNORECASE), "ಕ್ಲೋರಿಟಿಕ್ ಶಿಸ್ಟ್"),
-    (re.compile(rf"{L_KN}(?:ಸೋಪ್\s*ಸ್ಟೋನ್|ಸೋಪ್ಸ್ಟೋನ್){R_KN}", re.IGNORECASE), "ಸೋಪ್‌ಸ್ಟೋನ್"),
+    (re.compile(rf"{L_KN}(?:ಸೋಪ್\s*ಸ್ಟೋನ್|ಸೋಪ್ಸ್ಟೋನ್|ಸ್ಯಾಪ್\s*ಸ್ಟೋನ್|ಸ್ಯಾಪ್ಸ್ಟೋನ್|ಸಾಪ್\s*ಸ್ಟೋನ್|ಸಾಪ್ಸ್ಟೋನ್){R_KN}", re.IGNORECASE), "ಸೋಪ್‌ಸ್ಟೋನ್"),
 ]
 
 
