@@ -62,15 +62,33 @@ class TranslationService:
 
         # 2. Offline Neural Translation with NLLB-200 (CTranslate2 INT8)
         if self.nllb_engine.is_available():
-            raw_translated = self.nllb_engine.translate(clean_text, source_language, target_language)
-            if target_language == "kn":
+            if source_language == "kn" and target_language == "en" and preserve_heritage:
+                masked_text, masks = self.glossary.mask_heritage_terms(clean_text)
+                if masks:
+                    raw_translated = self.nllb_engine.translate(masked_text, source_language, target_language)
+                    unmasked = self.glossary.unmask_heritage_terms(raw_translated, masks)
+                    en_fixed = re.sub(r"\bBeirut\b", "Belur", unmasked, flags=re.IGNORECASE)
+                    en_fixed = re.sub(r"\bChennaikeshava\b", "Chennakeshava", en_fixed, flags=re.IGNORECASE)
+                    res = en_fixed
+                else:
+                    raw_translated = self.nllb_engine.translate(clean_text, source_language, target_language)
+                    en_fixed = re.sub(r"\bBeirut\b", "Belur", raw_translated, flags=re.IGNORECASE)
+                    en_fixed = re.sub(r"\bChennaikeshava\b", "Chennakeshava", en_fixed, flags=re.IGNORECASE)
+                    res = en_fixed
+                # Reject out-of-domain biblical hallucinations
+                if any(bad in res.lower() for bad in ["jehovah", "church", "bible", "mosque"]):
+                    norm = self.normalizer.normalize_for_retrieval(clean_text, source_lang="kn", target_lang="en")
+                    res = norm.retrieval_query
+            elif target_language == "kn":
+                raw_translated = self.nllb_engine.translate(clean_text, source_language, target_language)
                 res = self.heritage_translator.post_process_kannada(raw_translated)
             elif target_language == "en":
-                # Clean known NLLB transliteration quirks on Kannada heritage terms
+                raw_translated = self.nllb_engine.translate(clean_text, source_language, target_language)
                 en_fixed = re.sub(r"\bBeirut\b", "Belur", raw_translated, flags=re.IGNORECASE)
                 en_fixed = re.sub(r"\bChennaikeshava\b", "Chennakeshava", en_fixed, flags=re.IGNORECASE)
                 res = en_fixed
             else:
+                raw_translated = self.nllb_engine.translate(clean_text, source_language, target_language)
                 res = raw_translated
 
             if len(self._trans_cache) >= 1024:

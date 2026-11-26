@@ -225,6 +225,43 @@ HERITAGE_GLOSSARY: list[HeritageTermMapping] = [
         ],
     ),
     HeritageTermMapping(
+        kannada_term="ಉತ್ತರ ಮಂಟಪ",
+        english_term="North Pavilion",
+        category="architecture",
+        synonyms=[
+            "ಉತ್ತರ ಮಂಟಪದ",
+            "ಉತ್ತರದ ಮಂಟಪ",
+        ],
+    ),
+    HeritageTermMapping(
+        kannada_term="ಆಗ್ನೇಯ ಮಂಟಪ",
+        english_term="South-Eastern Pavilion",
+        category="architecture",
+        synonyms=[
+            "ಆಗ್ನೇಯ ಮಂಟಪದ",
+            "ಆಗ್ನೇಯದ ಮಂಟಪ",
+        ],
+    ),
+    HeritageTermMapping(
+        kannada_term="ಪೂರ್ವ ಮಂಟಪ",
+        english_term="East Pavilion",
+        category="architecture",
+        synonyms=[
+            "ಪೂರ್ವ ಮಂಟಪದ",
+            "ಪೂರ್ವದ ಮಂಟಪ",
+        ],
+    ),
+    HeritageTermMapping(
+        kannada_term="ಮುಜರಾಯಿ ಕಚೇರಿ",
+        english_term="Muzrai Office",
+        category="architecture",
+        synonyms=[
+            "ಮುಜರಾಯಿ ಕಚೇರಿ (ಐತಿಹಾಸಿಕ ಕಟ್ಟಡ)",
+            "ಮುಜರಾಯಿ ಕಟ್ಟಡ",
+            "ಮುಜರಾಯಿ ಕಚೇರಿಯ",
+        ],
+    ),
+    HeritageTermMapping(
         kannada_term="ಮಹಾದ್ವಾರ",
         english_term="main gateway gopura gopuram Raya Gopura 1397",
         category="architecture",

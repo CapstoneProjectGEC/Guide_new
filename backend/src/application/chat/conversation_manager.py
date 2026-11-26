@@ -142,8 +142,12 @@ class ConversationManager:
         if active_language == "kn" or self.language_detector.detect(reformulated_query).is_mixed:
             normalized = self.query_normalizer.normalize_for_retrieval(reformulated_query, source_lang=active_language)
             retrieval_query = normalized.retrieval_query
-            translated_q = self.translation_service.translate_text(reformulated_query, "kn", "en")
-            if translated_q and len(translated_q.split()) >= 3:
+            translated_q = self.translation_service.translate_text(reformulated_query, "kn", "en", preserve_heritage=True)
+            if (
+                translated_q
+                and len(translated_q.split()) >= 3
+                and not any(bad in translated_q.lower() for bad in ["jehovah", "church", "bible", "mosque"])
+            ):
                 llm_question_en = translated_q
             else:
                 llm_question_en = retrieval_query

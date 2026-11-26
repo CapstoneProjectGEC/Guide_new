@@ -45,8 +45,15 @@ ORTHOGRAPHIC_CORRECTIONS: list[tuple[re.Pattern, str]] = [
     # Temple name - correct stem spelling while preserving suffixes
     (re.compile(rf"{L_KN}(?:ಚೆನ್ನಕೇಶ್ವ|ಚೆನ್ನಕೇಶವಸ್ವಾಮಿ|ಚಿನ್ನಕೇಶ್ವ|ಚಿನ್ನಕೇಶವ|ಚೆನ್ನಾ-ಕೆಸವಾ|ಚೆನ್ನಾಕೆಸವಾ)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ಚೆನ್ನಕೇಶವ\1"),
     # Saumyanayaki Goddess Shrine
-    (re.compile(rf"{L_KN}(?:ಸೌಮ್ಯನ್ಯಾಕಿ|ಸೌಮ್ಯನಾಯ್ಕಿ|ಸೌಮ್ಯನಾಯಕಿಅಮ್ಮನವರ)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ಸೌಮ್ಯನಾಯಕಿ\1"),
+    (re.compile(rf"{L_KN}(?:ಸೌಮ್ಯನ್ಯಾಕಿ|ಸೌಮ್ಯನಾಯ್ಕಿ|ಸೌಮ್ಯನಾಯಕಿಅಮ್ಮನವರ|ಸೋಮನ್ಯಾಕಿ|ಸೋಮನಾಯ್ಕಿ)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ಸೌಮ್ಯನಾಯಕಿ\1"),
     (re.compile(rf"{L_KN}ಅಲ್ವಾರ್ಗಳಿಗೆ\s+ಮೀಸಲಾಗಿರುವ{R_KN}", re.IGNORECASE), "ಸೌಮ್ಯನಾಯಕಿ ದೇವಿಗೆ ಮೀಸಲಾಗಿರುವ"),
+    (re.compile(rf"{L_KN}ವಿಮನಾ{R_KN}", re.IGNORECASE), "ವಿಮಾನ"),
+    # Pavilions & Water Tanks
+    (re.compile(rf"{L_KN}(?:ನಾರ್ತ್\s*ಪ್ಯಾವಿಲಿಯನ್|ಉತ್ತರದ?\s*ಪ್ಯಾವಿಲಿಯನ್)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ಉತ್ತರ ಮಂಟಪ\1"),
+    (re.compile(rf"{L_KN}(?:ಈಸ್ಟ್\s*ಪ್ಯಾವಿಲಿಯನ್|ಪೂರ್ವದ?\s*ಪ್ಯಾವಿಲಿಯನ್)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ಪೂರ್ವ ಮಂಟಪ\1"),
+    (re.compile(rf"{L_KN}(?:ಸೌತ್-ಈಸ್ಟರ್ನ್\s*ಪ್ಯಾವಿಲಿಯನ್|ಆಗ್ನೇಯದ?\s*ಪ್ಯಾವಿಲಿಯನ್)([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ಆಗ್ನೇಯ ಮಂಟಪ\1"),
+    (re.compile(rf"{L_KN}(?:ವಸುಧೇವಾ|ವಾಸುದೇವ)\s*ಸರೋವರಾ?([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ವಾಸುದೇವ ಸರೋವರ\1"),
+    (re.compile(rf"{L_KN}ಮಂದಪ([ಅ-ಹ\u0c80-\u0cff]*){R_KN}", re.IGNORECASE), r"ಮಂಟಪ\1"),
     # Pedestal (pedestrian translation error)
     (re.compile(rf"{L_KN}ಪಾದಚಾರಿ(?:ಯ)?\s*ಮೇಲೆ{R_KN}", re.IGNORECASE), "ಪೀಠದ ಮೇಲೆ"),
     (re.compile(rf"{L_KN}ಪಾದಚಾರಿ{R_KN}", re.IGNORECASE), "ಪೀಠ"),

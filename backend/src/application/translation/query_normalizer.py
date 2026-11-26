@@ -17,6 +17,10 @@ COMMON_KANNADA_TERMS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"(?:ಸೌಮ್ಯನಾಯಕಿ|ಸೋಮನಾಯಕಿ|ಸೋಮ್ಯನಾಯಕಿ)(?:\s*(?:ದೇವಾಲಯ|ಗುಡಿ|ಸನ್ನಿಧಿ|ಅಮ್ಮನವರ))?(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು|ಯ)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Somanayaki Saumyanayaki Soumyanayaki temple vimana tower"),
     (re.compile(r"(?:ವೀರನಾರಾಯಣ|ವೀರ\s*ನಾರಾಯಣ)(?:\s*(?:ದೇವಾಲಯ|ಗುಡಿ|ಸನ್ನಿಧಿ))?(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು|ಯ)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Vira Narayana Temple Vira-Narayana compact Hoysala shrine"),
     (re.compile(r"(?:ಆಂಡಾಳ್|ರಂಗನಾಯಕಿ)(?:\s*(?:ದೇವಾಲಯ|ಗುಡಿ|ಸನ್ನಿಧಿ))?(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು|ಯ)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Andal Temple Ranganayaki female saint shrine"),
+    (re.compile(r"(?:ಉತ್ತರ\s*ಮಂಟಪ|ಉತ್ತರದ\s*ಮಂಟಪ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "North Pavilion northern side Vasudeva Sarovara Vijayanagara mandapa"),
+    (re.compile(r"(?:ಆಗ್ನೇಯ\s*ಮಂಟಪ|ಆಗ್ನೇಯದ\s*ಮಂಟಪ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "South-Eastern Pavilion ancillary structures flat ceilings Vijayanagara"),
+    (re.compile(r"(?:ಪೂರ್ವ\s*ಮಂಟಪ|ಪೂರ್ವದ\s*ಮಂಟಪ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "East Pavilion eastern pavilion Vasudeva Sarovara"),
+    (re.compile(r"(?:ಮುಜರಾಯಿ\s*ಕಚೇರಿ|ಮುಜರಾಯಿ\s*ಕಟ್ಟಡ)(?:\s*\(ಐತಿಹಾಸಿಕ\s*ಕಟ್ಟಡ\))?(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Muzrai Office Hindu Religious Charitable Endowments Wodeyar"),
     (re.compile(r"(?:ಉಯ್ಯಾಲೆ|ವ್ಯಾಳೆ)\s*ಮಂಟಪ(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Swinging mantapas swing pavilion Vyaule Mandapa"),
     (re.compile(r"(?:ದೀಪಸ್ತಂಭ|ದೀಪ\s*ಸ್ತಂಭ|ಗುರುತ್ವಾಕರ್ಷಣಾ?\s*ಸ್ತಂಭ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ವನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Gravity Pillar 42 feet stone pole courtyard weight and balance"),
     (re.compile(r"(?:ವಾಸುದೇವ\s*ಸರೋವರ|ಕಲ್ಯಾಣಿ)(?:ದಲ್ಲಿರುವ|ದಲ್ಲಿ|ದ|ಕ್ಕೆ|ಯನ್ನು)?(?![ಅ-ಹ\u0c80-\u0cff])", re.IGNORECASE), "Vasudeva-sarovara pond Vasudeva stepped water tank"),
@@ -88,6 +92,7 @@ RETRIEVAL_NOISE_WORDS: set[str] = {
     "give", "tell", "me", "please", "more", "a", "an", "the", "in", "of",
     "and", "to", "for", "with", "is", "are", "was", "were", "this", "that",
     "what", "know", "how", "do", "you", "sanctuary", "feet",
+    "jehovah", "church", "bible", "mosque", "part", "city",
 }
 
 
@@ -164,13 +169,16 @@ class QueryNormalizer:
                     clean_trans = re.sub(r"\bShanthala\b", "Shantala", clean_trans, flags=re.IGNORECASE)
                     clean_trans = re.sub(r"\bDharpana(?:\s+Sundery)?\b", "Darpana Sundari", clean_trans, flags=re.IGNORECASE)
 
+                    # Reject out-of-domain biblical/religious hallucinations
+                    if any(bad in clean_trans.lower() for bad in ["jehovah", "church", "bible", "mosque"]):
+                        raise ValueError(f"NLLB hallucinated religious terms in {clean_trans}")
+
                     # Validation: If query contains known heritage entities, ensure translation did not hallucinate them away
                     if preserved_terms:
                         has_entity = any(
-                            w.lower() in clean_trans.lower()
+                            term.lower() in clean_trans.lower()
+                            or any(w.lower() in clean_trans.lower() for w in term.split() if len(w) > 3)
                             for term in preserved_terms
-                            for w in term.split()
-                            if len(w) > 2
                         )
                         if not has_entity:
                             logger.warning(
@@ -219,12 +227,22 @@ class QueryNormalizer:
                                 if part.lower() not in [t.lower() for t in entity_tokens]:
                                     entity_tokens.append(part)
 
+                        # Include domain expansion terms from COMMON_KANNADA_TERMS for accurate hybrid matching
+                        for pat, replacement in COMMON_KANNADA_TERMS:
+                            if pat.search(clean_query):
+                                for rw in replacement.split():
+                                    if rw.lower() not in [t.lower() for t in entity_tokens]:
+                                        entity_tokens.append(rw)
+
                         # Extract meaningful intent/detail words from translation avoiding noise
                         extra_tokens: list[str] = []
                         for w in re.findall(r"\w+", clean_trans):
-                            if w.lower() not in RETRIEVAL_NOISE_WORDS and w.lower() not in [t.lower() for t in entity_tokens]:
-                                if w.lower() not in [t.lower() for t in extra_tokens]:
-                                    extra_tokens.append(w)
+                            if (
+                                w.lower() not in RETRIEVAL_NOISE_WORDS
+                                and w.lower() not in [t.lower() for t in entity_tokens]
+                                and w.lower() not in [t.lower() for t in extra_tokens]
+                            ):
+                                extra_tokens.append(w)
 
                         final_query = f"{' '.join(entity_tokens)} {' '.join(extra_tokens)}".strip()
                     else:
